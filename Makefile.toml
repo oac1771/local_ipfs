@@ -1,0 +1,18 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[tasks.start-colima]
+script='''
+colima start
+'''
+
+# make this take a param somehow
+[tasks.docker-build]
+env = { "DOCKER_BUILDER_IMAGE" = "builder:latest" }
+script='''
+docker build . -f docker/images/builder.Dockerfile -t $DOCKER_BUILDER_IMAGE
+docker build .  \
+    --build-arg BUILDER_IMAGE=$DOCKER_BUILDER_IMAGE \
+    -f docker/images/bruja.Dockerfile \
+    -t $DOCKER_IMAGE 
+'''
