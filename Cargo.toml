@@ -1,6 +1,15 @@
-[package]
+[workspace]
+resolver = "2"
+members = [
+    "crates/cli", 
+    "crates/server",
+]
+
+[workspace.package]
 name = "local_ipfs"
+rust-version = "1.81.0"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+[workspace.dependencies]
+jsonrpsee = "0.24.4"
