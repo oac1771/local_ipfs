@@ -2,6 +2,11 @@
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 DOCKER_BUILDER_IMAGE = "builder:latest"
 
+[config]
+time_summary = false
+reduce_output = true
+default_to_workspace = false
+
 [tasks.start-colima]
 script = '''
 colima start
@@ -9,17 +14,16 @@ colima start
 
 [tasks.docker-build-builder]
 env = { "RUST_VERSION" = "1.81.0" }
-script = '''
+script='''
 docker build . -f docker/images/builder.Dockerfile \
-     --build-arg RUST_VERSION=$RUST_VERSION \
+    --build-arg RUST_VERSION=$RUST_VERSION \
     -t $DOCKER_BUILDER_IMAGE
 '''
 
 [tasks.docker-build]
-script = '''
+script='''
 COMPONENT=${@}
-docker build .  \
+docker build . -f docker/images/$COMPONENT.Dockerfile \
     --build-arg BUILDER_IMAGE=$DOCKER_BUILDER_IMAGE \
-    -f docker/images/$COMPONENT.Dockerfile \
     -t $COMPONENT:latest
 '''

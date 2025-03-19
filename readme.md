@@ -11,6 +11,11 @@ Install Cargo Make
 cargo install --no-default-features cargo-make
 ```
 
+# Start Docker Daemon
+```
+cargo make start-colima
+```
+
 # Build
 
 Docker build builder

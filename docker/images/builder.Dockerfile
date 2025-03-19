@@ -11,4 +11,4 @@ RUN apt-get install -y curl \
                        libclang-dev
 
 RUN curl -sSf https://sh.rustup.rs/ | bash -s -- -y
-RUN rustup install ${RUST_VERSION}
+# RUN rustup install ${RUST_VERSION}
