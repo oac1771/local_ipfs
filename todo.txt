@@ -1,5 +1,12 @@
-crate for rpc (use jsonrpceee)
-crate for cli to interact with rpc
+server
+    - will probably be cli to start 
+    - create ping endpoint 
+    - make ping endpoint hit ipfs node
+docker-compose 
+    - start server app
+    - start ipfs app
+
+
 
 docker compose to run:
 - ipfs container
