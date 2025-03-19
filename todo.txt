@@ -1,0 +1,8 @@
+crate for rpc (use jsonrpceee)
+crate for cli to interact with rpc
+
+docker compose to run:
+- ipfs container
+- rpc to interact with grafana/prometheus
+- grafana
+- prometheus
