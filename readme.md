@@ -27,3 +27,11 @@ Docker build
 ```
 cargo make docker-build <component>
 ```
+
+# Run
+
+Start docker compose
+
+```
+cargo make docker-up
+```

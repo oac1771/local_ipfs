@@ -27,3 +27,13 @@ docker build . -f docker/images/$COMPONENT.Dockerfile \
     --build-arg BUILDER_IMAGE=$DOCKER_BUILDER_IMAGE \
     -t $COMPONENT:latest
 '''
+
+[tasks.docker-up]
+script='''
+docker compose -f docker/compose.yaml up -d
+'''
+
+[tasks.docker-down]
+script='''
+docker compose -f docker/compose.yaml down
+'''
