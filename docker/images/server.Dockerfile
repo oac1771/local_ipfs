@@ -5,7 +5,7 @@ LABEL stage=intermediate
 
 COPY . .
 
-RUN cargo build --workspace --release
+RUN cargo build --release
 
 ##############################################################################
 FROM docker.io/library/ubuntu:20.04
