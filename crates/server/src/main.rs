@@ -1,5 +1,7 @@
+mod api;
 mod cli;
 mod commands;
+mod rpc;
 
 use cli::run;
 use tracing_subscriber::{fmt, prelude::*};

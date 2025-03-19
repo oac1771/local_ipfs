@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-jsonrpsee = { workspace = true , features = ["server", "macros"] }
+jsonrpsee = { workspace = true , features = ["server", "macros", "client"] }
 clap = { workspace = true, features = ["derive"] }
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }
