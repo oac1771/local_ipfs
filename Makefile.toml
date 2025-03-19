@@ -1,18 +1,25 @@
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+DOCKER_BUILDER_IMAGE = "builder:latest"
 
 [tasks.start-colima]
-script='''
+script = '''
 colima start
 '''
 
-# make this take a param somehow
+[tasks.docker-build-builder]
+env = { "RUST_VERSION" = "1.81.0" }
+script = '''
+docker build . -f docker/images/builder.Dockerfile \
+     --build-arg RUST_VERSION=$RUST_VERSION \
+    -t $DOCKER_BUILDER_IMAGE
+'''
+
 [tasks.docker-build]
-env = { "DOCKER_BUILDER_IMAGE" = "builder:latest" }
-script='''
-docker build . -f docker/images/builder.Dockerfile -t $DOCKER_BUILDER_IMAGE
+script = '''
+COMPONENT=${@}
 docker build .  \
     --build-arg BUILDER_IMAGE=$DOCKER_BUILDER_IMAGE \
-    -f docker/images/bruja.Dockerfile \
-    -t $DOCKER_IMAGE 
+    -f docker/images/$COMPONENT.Dockerfile \
+    -t $COMPONENT:latest
 '''

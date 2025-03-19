@@ -13,7 +13,12 @@ cargo install --no-default-features cargo-make
 
 # Build
 
-Docker build
+Docker build builder
 ```
-cargo make docker-build
+cargo make docker-build-builder 
+```
+
+Docker build 
+```
+cargo make docker-build <component>
 ```

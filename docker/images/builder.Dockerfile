@@ -2,6 +2,8 @@ FROM debian:bullseye-slim as builder
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 
+ARG RUST_VERSION
+
 RUN apt-get update
 RUN apt-get install -y curl \
                        protobuf-compiler \
@@ -9,6 +11,4 @@ RUN apt-get install -y curl \
                        libclang-dev
 
 RUN curl -sSf https://sh.rustup.rs/ | bash -s -- -y
-RUN rustup target add wasm32-unknown-unknown
-RUN rustup component add rust-src
-RUN cargo install --force --locked cargo-contract
+RUN rustup install ${RUST_VERSION}

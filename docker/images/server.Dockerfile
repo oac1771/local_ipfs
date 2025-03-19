@@ -5,14 +5,10 @@ LABEL stage=intermediate
 
 COPY . .
 
-RUN cargo contract build --manifest-path crates/catalog/Cargo.toml --release
-RUN cargo build --exclude scripts --exclude catalog --exclude integration_tests --workspace --release
+RUN cargo build --workspace --release
 
 ##############################################################################
 FROM docker.io/library/ubuntu:20.04
 LABEL stage=app
 
-COPY --from=builder /target/ink/catalog/catalog.contract /
-
-COPY --from=builder /target/release/node /usr/local/bin
-COPY --from=builder /target/release/worker /usr/local/bin
+COPY --from=builder /target/release/server /usr/local/bin
