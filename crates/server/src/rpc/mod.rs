@@ -11,10 +11,6 @@ impl PingApi {
     pub fn new() -> Self {
         Self
     }
-
-    pub fn methods(self) -> Methods {
-        self.into_rpc().into()
-    }
 }
 
 #[async_trait]
@@ -24,5 +20,17 @@ impl PingServer for PingApi {
             response: String::from("pong"),
         };
         Ok(pong)
+    }
+}
+
+impl From<PingApi> for Methods {
+    fn from(val: PingApi) -> Self {
+        val.into_rpc().into()
+    }
+}
+
+impl Default for PingApi {
+    fn default() -> Self {
+        Self::new()
     }
 }
