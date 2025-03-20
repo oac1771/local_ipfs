@@ -1,5 +1,4 @@
 use clap::Parser;
-use tracing::info;
 
 use crate::rpc::RpcServer;
 
@@ -7,9 +6,8 @@ use crate::rpc::RpcServer;
 pub struct StartServerCmd;
 
 impl StartServerCmd {
-    pub async fn handle(&self) -> Result<(), &'static str> {
-        let _server = RpcServer::new();
-        info!("starting");
-        Ok(())
+    pub async fn handle(&self) {
+        let server = RpcServer::new();
+        server.start().await;
     }
 }

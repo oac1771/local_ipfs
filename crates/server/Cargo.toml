@@ -6,6 +6,6 @@ edition = "2021"
 [dependencies]
 jsonrpsee = { workspace = true , features = ["server", "macros", "client"] }
 clap = { workspace = true, features = ["derive"] }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["signal"]}
 tracing-subscriber = { workspace = true }
 tracing = { workspace = true, features = ["attributes"] }

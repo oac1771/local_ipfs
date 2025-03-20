@@ -1,6 +1,5 @@
 use crate::commands::StartServerCmd;
 use clap::{Parser, Subcommand};
-use tracing::error;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -17,11 +16,7 @@ enum Command {
 pub async fn run() {
     let args = Cli::parse();
 
-    let result = match args.command {
+    match args.command {
         Command::StartServer(cmd) => cmd.handle().await,
     };
-
-    if let Err(err) = result {
-        error!("Error: {:?}", err);
-    }
 }
