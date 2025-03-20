@@ -9,3 +9,5 @@ clap = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["signal"]}
 tracing-subscriber = { workspace = true }
 tracing = { workspace = true, features = ["attributes"] }
+serde = { workspace = true, features = ["derive"]}
+thiserror = { workspace = true }

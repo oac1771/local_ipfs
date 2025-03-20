@@ -6,7 +6,6 @@ members = [
 ]
 
 [workspace.package]
-name = "local_ipfs"
 rust-version = "1.81.0"
 version = "0.1.0"
 edition = "2021"
@@ -17,3 +16,5 @@ clap = "4.5.3"
 tokio = "1.44.1"
 tracing-subscriber = "0.3"
 tracing = "0.1.40"
+thiserror = "2.0.12"
+serde = "1.0.219"

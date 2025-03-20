@@ -35,3 +35,7 @@ Start docker compose
 ```
 cargo make docker-up
 ```
+
+```
+curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "api_ping"}' http://localhost:8080/
+```
