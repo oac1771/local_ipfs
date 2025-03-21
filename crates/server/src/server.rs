@@ -3,7 +3,7 @@ use tokio::{select, signal::ctrl_c};
 use tracing::{error, info};
 
 pub struct Server {
-    rpc_module: RpcModule<()>
+    rpc_module: RpcModule<()>,
 }
 
 impl Server {
@@ -12,9 +12,7 @@ impl Server {
         methods
             .into_iter()
             .for_each(|m| rpc_module.merge(m).unwrap());
-        Self {
-            rpc_module
-        }
+        Self { rpc_module }
     }
 
     pub async fn run(self) {

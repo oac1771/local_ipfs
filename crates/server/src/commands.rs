@@ -10,7 +10,7 @@ impl StartServerCmd {
         let methods = vec![PingApi::new()];
 
         let server = Server::new(methods);
-        
+
         server.run().await;
     }
 }
