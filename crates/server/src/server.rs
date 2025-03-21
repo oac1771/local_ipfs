@@ -15,14 +15,15 @@ impl Server {
         Self { rpc_module }
     }
 
-    pub async fn run(self) {
+    pub async fn run(self, port: u32) {
+        let addr = format!("0.0.0.0:{port}");
         let server = ServerBuilder::default()
-            .build("127.0.0.1:8080")
+            .build(&addr)
             .await
             .unwrap();
-        let server_handle = server.start(self.rpc_module);
 
-        info!("Starting Server...");
+        info!("Starting Server: {}", addr);
+        let server_handle = server.start(self.rpc_module);
 
         select! {
             result = tokio::spawn(server_handle.clone().stopped()) => {

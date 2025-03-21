@@ -14,3 +14,9 @@ services:
       - 4003:4003
       - 5001:5001
       - 8080:8080
+  rpc:
+    container_name: rpc
+    command: sh -c "server start-server --port ${PORT}"
+    image: server:latest
+    ports:
+      - ${PORT}:${PORT}
