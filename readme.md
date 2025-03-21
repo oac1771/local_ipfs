@@ -39,3 +39,8 @@ cargo make docker-up
 ```
 curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "api_ping"}' http://localhost:8080/
 ```
+
+using ipfs cli inside compose network:
+```
+ipfs pin ls --api=/dns4/ipfs/tcp/5001
+```

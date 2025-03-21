@@ -4,8 +4,6 @@ services:
     image: ipfs/kubo:v0.33.2
     environment:
       IPFS_PATH: /data/ipfs
-      IPFS_LOGGING: 'debug'
-      IPFS_LOGGING_LEVEL: debug
     volumes:
       - ./../data/ipfs:/data/ipfs
     ports:
@@ -16,7 +14,8 @@ services:
       - 8080:8080
   rpc:
     container_name: rpc
-    command: sh -c "server start-server --port ${PORT}"
+    command: |
+      server start-server --port ${PORT}
     image: server:latest
     ports:
       - ${PORT}:${PORT}
