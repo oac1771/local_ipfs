@@ -1,6 +1,6 @@
 use clap::Parser;
-
-use crate::{rpc::ping::PingApi, server::Server};
+use jsonrpsee::Methods;
+use crate::{rpc::{ping::PingApi, ipfs::IpfsApi}, server::Server};
 
 #[derive(Debug, Parser)]
 pub struct StartServerCmd {
@@ -10,7 +10,7 @@ pub struct StartServerCmd {
 
 impl StartServerCmd {
     pub async fn handle(&self) {
-        let methods = vec![PingApi::default()];
+        let methods: Vec<Methods> = vec![PingApi::default().into(), IpfsApi::default().into()];
 
         let server = Server::new(methods);
 

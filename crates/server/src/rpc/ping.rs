@@ -3,7 +3,7 @@ use jsonrpsee::{
     Methods,
 };
 
-use crate::api::{types::Pong, ping::PingServer};
+use crate::api::{ping::PingServer, types::Pong};
 
 pub struct PingApi;
 

@@ -7,7 +7,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new<T: Into<Methods>>(methods: Vec<T>) -> Self {
+    pub fn new(methods: Vec<Methods>) -> Self {
         let mut rpc_module = RpcModule::new(());
         methods
             .into_iter()
@@ -17,10 +17,7 @@ impl Server {
 
     pub async fn run(self, port: u32) {
         let addr = format!("0.0.0.0:{port}");
-        let server = ServerBuilder::default()
-            .build(&addr)
-            .await
-            .unwrap();
+        let server = ServerBuilder::default().build(&addr).await.unwrap();
 
         info!("Starting Server on: {}", addr);
         let server_handle = server.start(self.rpc_module);

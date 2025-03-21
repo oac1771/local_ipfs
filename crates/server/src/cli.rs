@@ -1,4 +1,4 @@
-use crate::commands::StartServerCmd;
+use crate::commands::start_server::StartServerCmd;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
