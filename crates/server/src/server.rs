@@ -22,7 +22,7 @@ impl Server {
             .await
             .unwrap();
 
-        info!("Starting Server: {}", addr);
+        info!("Starting Server on: {}", addr);
         let server_handle = server.start(self.rpc_module);
 
         select! {
@@ -33,8 +33,8 @@ impl Server {
             },
             _ = ctrl_c() => {}
         };
-        info!("Shutting down...");
 
+        info!("Shutting down...");
         if let Err(err) = server_handle.stop() {
             error!("Error while shutting down: {:?}", err);
         };

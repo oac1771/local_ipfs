@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use crate::{rpc::PingApi, server::Server};
+use crate::{rpc::ping::PingApi, server::Server};
 
 #[derive(Debug, Parser)]
 pub struct StartServerCmd {
@@ -10,7 +10,7 @@ pub struct StartServerCmd {
 
 impl StartServerCmd {
     pub async fn handle(&self) {
-        let methods = vec![PingApi::new()];
+        let methods = vec![PingApi::default()];
 
         let server = Server::new(methods);
 
