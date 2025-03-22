@@ -2,15 +2,15 @@ use jsonrpsee::{
     core::{async_trait, RpcResult},
     Methods,
 };
-use std::env::var;
 use reqwest::Client;
-use tracing::info;
+use serde_json;
+use std::env::var;
 
-use crate::api::ipfs::IpfsServer;
+use crate::api::{ipfs::IpfsServer, types::ipfs::IpfsIdResponse};
 
 pub struct IpfsApi {
     ipfs_base_url: String,
-    client: Client
+    client: Client,
 }
 
 impl IpfsApi {
@@ -18,19 +18,29 @@ impl IpfsApi {
         let ipfs_base_url = var("IPFS_BASE_URL").unwrap_or(ipfs_base_url.into());
         let client = Client::new();
 
-        Self { ipfs_base_url, client }
+        Self {
+            ipfs_base_url,
+            client,
+        }
     }
 }
 
 #[async_trait]
 impl IpfsServer for IpfsApi {
-    async fn id(&self) -> RpcResult<()> {
+    async fn id(&self) -> RpcResult<IpfsIdResponse> {
         let url = format!("{}{}", self.ipfs_base_url, "/api/v0/id");
-        let response = self.client.post(url).send().await.unwrap();
+        let response = self
+            .client
+            .post(url)
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+        let ipfs_id_response = serde_json::from_str::<IpfsIdResponse>(&response).unwrap();
 
-        info!(">>>> {}", response.text().await.unwrap());
-
-        Ok(())
+        Ok(ipfs_id_response)
     }
 }
 
