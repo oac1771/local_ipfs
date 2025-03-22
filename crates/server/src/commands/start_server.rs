@@ -3,8 +3,11 @@ use clap::Parser;
 
 #[derive(Debug, Parser)]
 pub struct StartServerCmd {
-    #[arg(long)]
-    pub port: String,
+    #[arg(long, default_value = "8008")]
+    port: String,
+
+    #[arg(default_value = "0.0.0.0")]
+    ip: String,
 }
 
 impl StartServerCmd {
@@ -12,7 +15,7 @@ impl StartServerCmd {
         let modules = vec![Module::Ping, Module::Ipfs];
 
         let server = ServerBuilder::new()
-            .with_ip("0.0.0.0")
+            .with_ip(self.ip)
             .with_port(self.port)
             .with_modules(modules)
             .build();

@@ -4,9 +4,9 @@ use jsonrpsee::{
 };
 use reqwest::Client;
 use serde_json;
-use std::env::var;
+use tracing::info;
 
-use crate::api::{ipfs::IpfsServer, types::ipfs::IpfsIdResponse};
+use crate::api::{ipfs::IpfsServer, types::ipfs::{IpfsIdResponse, PinAction}};
 
 pub struct IpfsApi {
     ipfs_base_url: String,
@@ -15,11 +15,10 @@ pub struct IpfsApi {
 
 impl IpfsApi {
     pub fn new(ipfs_base_url: impl Into<String>) -> Self {
-        let ipfs_base_url = var("IPFS_BASE_URL").unwrap_or(ipfs_base_url.into());
         let client = Client::new();
 
         Self {
-            ipfs_base_url,
+            ipfs_base_url: ipfs_base_url.into(),
             client,
         }
     }
@@ -42,16 +41,16 @@ impl IpfsServer for IpfsApi {
 
         Ok(ipfs_id_response)
     }
+
+    async fn pin(&self, action: String) -> RpcResult<()> {
+        let pin_action  = PinAction::try_from(action).unwrap();
+        info!(">>> {:?}", pin_action);
+        Ok(())
+    }
 }
 
 impl From<IpfsApi> for Methods {
     fn from(val: IpfsApi) -> Self {
         val.into_rpc().into()
-    }
-}
-
-impl Default for IpfsApi {
-    fn default() -> Self {
-        Self::new("http://localhost:5001")
     }
 }

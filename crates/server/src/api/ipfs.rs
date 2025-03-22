@@ -5,4 +5,7 @@ use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 pub trait Ipfs {
     #[method(name = "id")]
     async fn id(&self) -> RpcResult<IpfsIdResponse>;
+
+    #[method(name = "pin")]
+    async fn pin(&self, action: String) -> RpcResult<()>;
 }

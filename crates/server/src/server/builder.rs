@@ -1,5 +1,6 @@
 use super::Server;
 use crate::rpc::{ipfs::IpfsApi, ping::PingApi, Module};
+use std::env::var;
 
 use jsonrpsee::{Methods, RpcModule};
 
@@ -54,7 +55,11 @@ impl ServerBuilder<String, String, Vec<Module>> {
         let mut rpc_module = RpcModule::new(());
         self.modules.into_iter().for_each(|m| {
             let methods: Methods = match m {
-                Module::Ipfs => IpfsApi::default().into(),
+                Module::Ipfs => {
+                    let ipfs_base_url =
+                        var("IPFS_BASE_URL").unwrap_or("http://localhost:5001".into());
+                    IpfsApi::new(ipfs_base_url).into()
+                }
                 Module::Ping => PingApi.into(),
             };
             rpc_module.merge(methods).unwrap();
