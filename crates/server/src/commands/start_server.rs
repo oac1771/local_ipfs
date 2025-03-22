@@ -14,7 +14,7 @@ impl StartServerCmd {
         let server = ServerBuilder::new()
             .with_ip("0.0.0.0")
             .with_port(self.port)
-            .with_modules(modules.into())
+            .with_modules(modules)
             .build();
 
         server.run().await;

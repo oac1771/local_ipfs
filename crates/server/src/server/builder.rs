@@ -44,7 +44,7 @@ impl<I, P, M> ServerBuilder<I, P, M> {
         ServerBuilder {
             ip: self.ip,
             port: self.port,
-            modules: modules,
+            modules,
         }
     }
 }
@@ -54,8 +54,8 @@ impl ServerBuilder<String, String, Vec<Module>> {
         let mut rpc_module = RpcModule::new(());
         self.modules.into_iter().for_each(|m| {
             let methods: Methods = match m {
-                Module::Ipfs => IpfsApi::default().into(),
-                Module::Ping => PingApi::default().into(),
+                Module::Ipfs => IpfsApi.into(),
+                Module::Ping => PingApi.into(),
             };
             rpc_module.merge(methods).unwrap();
         });
