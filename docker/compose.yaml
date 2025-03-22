@@ -15,7 +15,9 @@ services:
   rpc:
     container_name: rpc
     command: |
-      server start-server --port ${PORT}
+      server start-server --port 8008
     image: server:latest
+    environment:
+      - IPFS_BASE_URL: http://ipfs:5001
     ports:
-      - ${PORT}:${PORT}
+      - 8008:8008

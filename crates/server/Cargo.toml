@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-jsonrpsee = { workspace = true , features = ["server", "macros", "client"] }
 clap = { workspace = true, features = ["derive"] }
+jsonrpsee = { workspace = true , features = ["server", "macros", "client"] }
+reqwest = { workspace = true, features = ["multipart", "stream"] }
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["signal"]}
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tracing = { workspace = true, features = ["attributes"] }
-serde = { workspace = true, features = ["derive"]}
-thiserror = { workspace = true }

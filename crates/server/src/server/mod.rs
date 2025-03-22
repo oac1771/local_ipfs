@@ -21,12 +21,12 @@ impl Server {
 
     pub async fn run(self) {
         let addr = format!("{0}:{1}", self.ip, self.port);
+        info!("Starting Server on: {}", addr);
         let server = JosnRpseeServerBuilder::default()
             .build(&addr)
             .await
             .unwrap();
 
-        info!("Starting Server on: {}", addr);
         let server_handle = server.start(self.rpc_module);
 
         select! {

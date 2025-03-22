@@ -1,7 +1,6 @@
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 DOCKER_BUILDER_IMAGE = "builder:latest"
-PORT = "8008"
 
 [config]
 time_summary = false
