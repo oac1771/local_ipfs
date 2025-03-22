@@ -1,14 +1,9 @@
 server
-    - create server builder which takes enums of possible rpc modules, on build, map those to rpc structs and call their new()
     - will probably be cli to start 
-    - create ping endpoint 
     - make ping endpoint hit ipfs node
 docker-compose 
     - start server app
     - start ipfs app
-
-
-
 
 docker compose to run:
 - ipfs container

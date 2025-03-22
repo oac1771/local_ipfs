@@ -1,19 +1,22 @@
+use crate::{rpc::Module, server::builder::ServerBuilder};
 use clap::Parser;
-use jsonrpsee::Methods;
-use crate::{rpc::{ping::PingApi, ipfs::IpfsApi}, server::Server};
 
 #[derive(Debug, Parser)]
 pub struct StartServerCmd {
-    #[arg(long, default_value_t = 8080)]
-    pub port: u32,
+    #[arg(long)]
+    pub port: String,
 }
 
 impl StartServerCmd {
-    pub async fn handle(&self) {
-        let methods: Vec<Methods> = vec![PingApi::default().into(), IpfsApi::default().into()];
+    pub async fn handle(self) {
+        let modules = vec![Module::Ping, Module::Ipfs];
 
-        let server = Server::new(methods);
+        let server = ServerBuilder::new()
+            .with_ip("0.0.0.0")
+            .with_port(self.port)
+            .with_modules(modules.into())
+            .build();
 
-        server.run(self.port).await;
+        server.run().await;
     }
 }

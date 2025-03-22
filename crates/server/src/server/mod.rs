@@ -1,23 +1,30 @@
-use jsonrpsee::{server::ServerBuilder, Methods, RpcModule};
+pub mod builder;
+
+use jsonrpsee::{server::ServerBuilder as JosnRpseeServerBuilder, RpcModule};
 use tokio::{select, signal::ctrl_c};
 use tracing::{error, info};
 
 pub struct Server {
     rpc_module: RpcModule<()>,
+    port: String,
+    ip: String,
 }
 
 impl Server {
-    pub fn new(methods: Vec<Methods>) -> Self {
-        let mut rpc_module = RpcModule::new(());
-        methods
-            .into_iter()
-            .for_each(|m| rpc_module.merge(m).unwrap());
-        Self { rpc_module }
+    pub fn new(rpc_module: RpcModule<()>, port: String, ip: String) -> Self {
+        Self {
+            rpc_module,
+            port,
+            ip,
+        }
     }
 
-    pub async fn run(self, port: u32) {
-        let addr = format!("0.0.0.0:{port}");
-        let server = ServerBuilder::default().build(&addr).await.unwrap();
+    pub async fn run(self) {
+        let addr = format!("{0}:{1}", self.ip, self.port);
+        let server = JosnRpseeServerBuilder::default()
+            .build(&addr)
+            .await
+            .unwrap();
 
         info!("Starting Server on: {}", addr);
         let server_handle = server.start(self.rpc_module);
