@@ -4,9 +4,12 @@ use jsonrpsee::{
 };
 use reqwest::Client;
 use serde_json;
-use tracing::info;
+// use tracing::info;
 
-use crate::api::{ipfs::IpfsServer, types::ipfs::{IpfsIdResponse, PinAction}};
+use crate::api::{
+    ipfs::IpfsServer,
+    types::ipfs::{IpfsIdResponse, PinAction},
+};
 
 pub struct IpfsApi {
     ipfs_base_url: String,
@@ -42,9 +45,10 @@ impl IpfsServer for IpfsApi {
         Ok(ipfs_id_response)
     }
 
-    async fn pin(&self, action: String) -> RpcResult<()> {
-        let pin_action  = PinAction::try_from(action).unwrap();
-        info!(">>> {:?}", pin_action);
+    async fn pin(&self, pin_action: PinAction) -> RpcResult<()> {
+        match pin_action {
+            PinAction::ls => {}
+        }
         Ok(())
     }
 }

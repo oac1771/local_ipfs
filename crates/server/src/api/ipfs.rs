@@ -1,4 +1,4 @@
-use super::types::ipfs::IpfsIdResponse;
+use super::types::ipfs::{IpfsIdResponse, PinAction};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
 #[rpc(client, server, namespace = "ipfs")]
@@ -7,5 +7,5 @@ pub trait Ipfs {
     async fn id(&self) -> RpcResult<IpfsIdResponse>;
 
     #[method(name = "pin")]
-    async fn pin(&self, action: String) -> RpcResult<()>;
+    async fn pin(&self, pin_action: PinAction) -> RpcResult<()>;
 }

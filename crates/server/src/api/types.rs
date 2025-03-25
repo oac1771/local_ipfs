@@ -8,20 +8,10 @@ pub struct Pong {
 pub mod ipfs {
     use super::*;
 
+    #[allow(non_camel_case_types)]
     #[derive(Serialize, Deserialize, Clone, Debug)]
     pub enum PinAction {
-        Ls
-    }
-
-    impl TryFrom<String> for PinAction {
-        type Error = &'static str;
-
-        fn try_from(value: String) -> Result<Self, Self::Error> {
-            match value.as_str() {
-                "ls" => Ok(Self::Ls),
-                _ => Err("foo")
-            }
-        }
+        ls,
     }
 
     #[derive(Serialize, Deserialize, Clone, Debug)]

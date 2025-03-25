@@ -8,7 +8,6 @@ pub enum RpcServeError {
     /// Method not available
     #[error("Method not available: {0}")]
     MethodNotFound(String),
-
 }
 
 impl From<RpcServeError> for ErrorObjectOwned {
