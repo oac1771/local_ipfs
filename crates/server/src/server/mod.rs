@@ -32,15 +32,15 @@ impl Server {
         select! {
             result = tokio::spawn(server_handle.clone().stopped()) => {
                 if let Err(err) = result {
-                    error!("Server Error: {:?}", err);
+                    error!("Server stopped unexpectedly: {:?}", err);
                 };
             },
             _ = ctrl_c() => {}
         };
 
         info!("Shutting down...");
-        if let Err(err) = server_handle.stop() {
-            error!("Error while shutting down: {:?}", err);
+        if let Err(_) = server_handle.stop() {
+            error!("Server has already been shut down");
         };
     }
 }

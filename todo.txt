@@ -5,6 +5,8 @@ docker-compose
     - start server app
     - start ipfs app
 
+- log level on the fly: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/reload/index.html
+
 docker compose to run:
 - ipfs container
 - rpc to interact with grafana/prometheus

@@ -12,6 +12,8 @@ pub mod ipfs {
     #[derive(Serialize, Deserialize, Clone, Debug)]
     pub enum PinAction {
         ls,
+        add,
+        rm
     }
 
     #[derive(Serialize, Deserialize, Clone, Debug)]
