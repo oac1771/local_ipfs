@@ -9,7 +9,9 @@ RUN apt-get install -y curl \
                        protobuf-compiler \
                        build-essential \    
                        libclang-dev \ 
-                       wget
+                       wget \
+                       libssl-dev \
+                       pkg-config
 
 # Install Rust
 RUN curl -sSf https://sh.rustup.rs/ | bash -s -- -y
