@@ -7,5 +7,5 @@ pub trait Ipfs {
     async fn id(&self) -> RpcResult<IpfsIdResponse>;
 
     #[method(name = "pin")]
-    async fn pin(&self, pin_action: PinAction) -> RpcResult<()>;
+    async fn pin(&self, pin_action: PinAction, hash: Option<String>) -> RpcResult<()>;
 }

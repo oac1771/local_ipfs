@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
+futures = { workspace = true }
 jsonrpsee = { workspace = true , features = ["server", "macros", "client"] }
 reqwest = { workspace = true, features = ["multipart", "stream"] }
 serde = { workspace = true, features = ["derive"] }
