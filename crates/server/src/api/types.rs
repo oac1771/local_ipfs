@@ -18,6 +18,24 @@ pub mod ipfs {
     }
 
     #[derive(Serialize, Deserialize, Clone, Debug)]
+    pub enum IpfsPinResponse {
+        Ls(IpfsPinLsResponse),
+        Add(IpfsPinAddResponse)
+    }
+
+    impl From<IpfsPinLsResponse> for IpfsPinResponse {
+        fn from(value: IpfsPinLsResponse) -> Self {
+            Self::Ls(value)
+        }
+    }
+
+    impl From<IpfsPinAddResponse> for IpfsPinResponse {
+        fn from(value: IpfsPinAddResponse) -> Self {
+            Self::Add(value)
+        }
+    }
+
+    #[derive(Serialize, Deserialize, Clone, Debug)]
     pub struct IpfsIdResponse {
         #[serde(alias = "ID")]
         pub id: String,
@@ -25,6 +43,12 @@ pub mod ipfs {
 
     #[derive(Serialize, Deserialize, Clone, Debug)]
     pub struct IpfsPinLsResponse {
+        #[serde(alias = "Keys")]
+        pub keys: Value,
+    }
+
+    #[derive(Serialize, Deserialize, Clone, Debug)]
+    pub struct IpfsPinAddResponse {
         #[serde(alias = "Keys")]
         pub keys: Value,
     }

@@ -1,7 +1,7 @@
-use crate::api::{
+use crate::{api::{
     ipfs::IpfsServer,
-    types::ipfs::{IpfsIdResponse, IpfsPinLsResponse, PinAction},
-};
+    types::ipfs::{IpfsIdResponse, IpfsPinAddResponse, IpfsPinLsResponse, IpfsPinResponse, PinAction},
+}, rpc::error::RpcServeError};
 use futures::{future::BoxFuture, FutureExt};
 use jsonrpsee::{
     core::{async_trait, RpcResult},
@@ -67,8 +67,8 @@ impl IpfsServer for IpfsApi {
         Ok(response)
     }
 
-    async fn pin(&self, pin_action: PinAction, hash: Option<String>) -> RpcResult<()> {
-        match pin_action {
+    async fn pin(&self, pin_action: PinAction, hash: Option<String>) -> RpcResult<IpfsPinResponse> {
+        let r: IpfsPinResponse = match pin_action {
             PinAction::ls => {
                 let url = format!("{}{}", self.ipfs_base_url, "/api/v0/pin/ls");
                 let request = || async move { self.client.post(url).send().await }.boxed();
@@ -77,18 +77,21 @@ impl IpfsServer for IpfsApi {
                     .await
                     .unwrap();
                 info!("ls: {:?}", response);
+                response.into()
             }
             PinAction::add => {
-                let url = format!("{}{}", self.ipfs_base_url, "/api/v0/pin/add");
+                let hash = hash.ok_or_else(|| RpcServeError::Message("Hash not supplied".to_string()))?;
+                let url = format!("{}/api/v0/pin/add?arg={}", self.ipfs_base_url, hash);
                 let request = || async move { self.client.post(url).send().await }.boxed();
                 let response = self
-                    .call::<IpfsPinLsResponse, IpfsApiError>(request)
+                    .call::<IpfsPinAddResponse, IpfsApiError>(request)
                     .await
                     .unwrap();
                 info!("ls: {:?}", response);
-            } // PinAction::rm => {}
+                response.into()
+            }
         };
-        Ok(())
+        Ok(r)
     }
 }
 
