@@ -1,4 +1,4 @@
-use super::types::ipfs::{IpfsIdResponse, PinAction, IpfsPinResponse};
+use super::types::ipfs::{IpfsIdResponse, IpfsPinResponse, PinAction};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
 #[rpc(client, server, namespace = "ipfs")]

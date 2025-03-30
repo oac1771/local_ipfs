@@ -20,7 +20,7 @@ pub mod ipfs {
     #[derive(Serialize, Deserialize, Clone, Debug)]
     pub enum IpfsPinResponse {
         Ls(IpfsPinLsResponse),
-        Add(IpfsPinAddResponse)
+        Add(IpfsPinAddResponse),
     }
 
     impl From<IpfsPinLsResponse> for IpfsPinResponse {

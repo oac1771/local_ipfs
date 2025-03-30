@@ -1,16 +1,22 @@
-use crate::{api::{
-    ipfs::IpfsServer,
-    types::ipfs::{IpfsIdResponse, IpfsPinAddResponse, IpfsPinLsResponse, IpfsPinResponse, PinAction},
-}, rpc::error::RpcServeError};
-use futures::{future::BoxFuture, FutureExt};
+use crate::{
+    api::{
+        ipfs::IpfsServer,
+        types::ipfs::{
+            IpfsIdResponse, IpfsPinAddResponse, IpfsPinLsResponse, IpfsPinResponse, PinAction,
+        },
+    },
+    rpc::error::RpcServeError,
+};
+use futures::FutureExt;
 use jsonrpsee::{
     core::{async_trait, RpcResult},
     Methods,
 };
 use reqwest::Client;
-use serde::de::DeserializeOwned;
 use serde_json;
 use tracing::info;
+
+use super::Call;
 
 pub struct IpfsApi {
     ipfs_base_url: String,
@@ -35,24 +41,9 @@ impl IpfsApi {
             client,
         }
     }
-
-    pub async fn call<'a, D, E>(
-        &self,
-        request: impl FnOnce() -> BoxFuture<'a, Result<reqwest::Response, reqwest::Error>>,
-    ) -> Result<D, E>
-    where
-        D: DeserializeOwned,
-        E: From<reqwest::Error> + From<serde_json::Error>,
-    {
-        let response = request().await?;
-        // error log this and return err here (if let Err(err))
-        let resp = response.error_for_status()?;
-        let body = resp.text().await?;
-        let r = serde_json::from_str::<D>(&body)?;
-
-        return Ok(r);
-    }
 }
+
+impl Call for IpfsApi {}
 
 #[async_trait]
 impl IpfsServer for IpfsApi {
@@ -62,7 +53,7 @@ impl IpfsServer for IpfsApi {
         let response = self
             .call::<IpfsIdResponse, IpfsApiError>(request)
             .await
-            .unwrap();
+            .map_err(|err| RpcServeError::Message(err.to_string()))?;
 
         Ok(response)
     }
@@ -75,18 +66,19 @@ impl IpfsServer for IpfsApi {
                 let response = self
                     .call::<IpfsPinLsResponse, IpfsApiError>(request)
                     .await
-                    .unwrap();
+                    .map_err(|err| RpcServeError::Message(err.to_string()))?;
                 info!("ls: {:?}", response);
                 response.into()
             }
             PinAction::add => {
-                let hash = hash.ok_or_else(|| RpcServeError::Message("Hash not supplied".to_string()))?;
+                let hash =
+                    hash.ok_or_else(|| RpcServeError::Message("Hash not supplied".to_string()))?;
                 let url = format!("{}/api/v0/pin/add?arg={}", self.ipfs_base_url, hash);
                 let request = || async move { self.client.post(url).send().await }.boxed();
                 let response = self
                     .call::<IpfsPinAddResponse, IpfsApiError>(request)
                     .await
-                    .unwrap();
+                    .map_err(|err| RpcServeError::Message(err.to_string()))?;
                 info!("ls: {:?}", response);
                 response.into()
             }

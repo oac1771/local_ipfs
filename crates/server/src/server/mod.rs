@@ -39,8 +39,8 @@ impl Server {
         };
 
         info!("Shutting down...");
-        if let Err(_) = server_handle.stop() {
-            error!("Server has already been shut down");
+        if let Err(err) = server_handle.stop() {
+            error!("Error while stoping server: {}", err);
         };
     }
 }
