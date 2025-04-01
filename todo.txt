@@ -1,11 +1,17 @@
 server
-    - will probably be cli to start 
-    - make ping endpoint hit ipfs node
-docker-compose 
-    - start server app
-    - start ipfs app
+    - ipfs rpc:
+        - add: https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-add
+        - cat: https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-cat
+        - get: https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-get
+    - add util rpc:
+        - move ping into util
+        - add update on the fly log level:
+            - log level on the fly: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/reload/index.html
 
-- log level on the fly: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/reload/index.html
+cli
+    - run as cli or run as tui (ratatui)
+        - could be both? 
+
 
 docker compose to run:
 - ipfs container

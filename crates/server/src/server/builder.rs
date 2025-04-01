@@ -1,8 +1,10 @@
 use super::Server;
-use crate::rpc::{ipfs::IpfsApi, ping::PingApi, Module};
+use crate::rpc::{ipfs::IpfsApi, util::UtilApi, Module};
 use std::env::var;
 
 use jsonrpsee::{Methods, RpcModule};
+use tracing_subscriber::{filter::LevelFilter, reload::Handle, Registry};
+
 
 pub(crate) struct NoI;
 pub(crate) struct NoP;

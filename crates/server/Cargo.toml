@@ -11,6 +11,6 @@ reqwest = { workspace = true, features = ["multipart", "stream"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["signal"]}
+tokio = { workspace = true, features = ["signal"] }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tracing = { workspace = true, features = ["attributes"] }

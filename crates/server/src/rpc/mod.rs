@@ -1,13 +1,13 @@
 mod error;
 pub mod ipfs;
-pub mod ping;
+pub mod util;
 
 use futures::future::BoxFuture;
 use serde::de::DeserializeOwned;
 use tracing::error;
 
 pub enum Module {
-    Ping,
+    Util,
     Ipfs,
 }
 
