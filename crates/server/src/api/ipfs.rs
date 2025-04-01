@@ -9,6 +9,4 @@ pub trait Ipfs {
     #[method(name = "pin")]
     async fn pin(&self, pin_action: PinAction, hash: Option<String>) -> RpcResult<IpfsPinResponse>;
 
-    #[method(name = "add")]
-    async fn add(&self, file_path: String) -> RpcResult<()>;
 }

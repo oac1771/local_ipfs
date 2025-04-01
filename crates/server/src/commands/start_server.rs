@@ -12,7 +12,7 @@ pub struct StartServerCmd {
 
 impl StartServerCmd {
     pub async fn handle(self) {
-        let modules = vec![Module::Ping, Module::Ipfs];
+        let modules = vec![Module::Util, Module::Ipfs];
 
         let server = ServerBuilder::new()
             .with_ip(self.ip)

@@ -3,7 +3,6 @@ use crate::rpc::{ipfs::IpfsApi, util::UtilApi, Module};
 use std::env::var;
 
 use jsonrpsee::{Methods, RpcModule};
-use tracing_subscriber::{filter::LevelFilter, reload::Handle, Registry};
 
 
 pub(crate) struct NoI;
@@ -62,7 +61,7 @@ impl ServerBuilder<String, String, Vec<Module>> {
                         var("IPFS_BASE_URL").unwrap_or("http://localhost:5001".into());
                     IpfsApi::new(ipfs_base_url).into()
                 }
-                Module::Ping => PingApi.into(),
+                Module::Util => UtilApi.into(),
             };
             rpc_module.merge(methods).unwrap();
         });
