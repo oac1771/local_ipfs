@@ -8,5 +8,4 @@ pub trait Ipfs {
 
     #[method(name = "pin")]
     async fn pin(&self, pin_action: PinAction, hash: Option<String>) -> RpcResult<IpfsPinResponse>;
-
 }

@@ -3,7 +3,7 @@ use crate::rpc::{ipfs::IpfsApi, util::UtilApi, Module};
 use std::env::var;
 
 use jsonrpsee::{Methods, RpcModule};
-
+use tracing_subscriber::{EnvFilter, Registry, reload::Handle};
 
 pub(crate) struct NoI;
 pub(crate) struct NoP;
@@ -52,7 +52,7 @@ impl<I, P, M> ServerBuilder<I, P, M> {
 }
 
 impl ServerBuilder<String, String, Vec<Module>> {
-    pub fn build(self) -> Server {
+    pub fn build(self, reload_handle: Handle<EnvFilter, Registry>) -> Server {
         let mut rpc_module = RpcModule::new(());
         self.modules.into_iter().for_each(|m| {
             let methods: Methods = match m {
@@ -61,7 +61,7 @@ impl ServerBuilder<String, String, Vec<Module>> {
                         var("IPFS_BASE_URL").unwrap_or("http://localhost:5001".into());
                     IpfsApi::new(ipfs_base_url).into()
                 }
-                Module::Util => UtilApi.into(),
+                Module::Util => UtilApi::new(reload_handle.clone()).into(),
             };
             rpc_module.merge(methods).unwrap();
         });
