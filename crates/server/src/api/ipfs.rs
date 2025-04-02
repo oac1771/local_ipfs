@@ -1,4 +1,4 @@
-use super::types::ipfs::{IpfsIdResponse, IpfsPinResponse, PinAction, IpfsAddResponse};
+use super::types::ipfs::{IpfsAddResponse, IpfsIdResponse, IpfsPinResponse, PinAction};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
 #[rpc(client, server, namespace = "ipfs")]
@@ -11,4 +11,7 @@ pub trait Ipfs {
 
     #[method(name = "add")]
     async fn add(&self) -> RpcResult<IpfsAddResponse>;
+
+    #[method(name = "cat")]
+    async fn cat(&self, hash: String) -> RpcResult<String>;
 }

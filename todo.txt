@@ -1,8 +1,7 @@
 server
     - ipfs rpc:
-        - add: https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-add
-        - cat: https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-cat
-        - get: https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-get
+        - rm
+        - pin rm
 
 cli
     - run as cli or run as tui (ratatui)

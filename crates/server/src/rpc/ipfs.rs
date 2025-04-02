@@ -8,14 +8,17 @@ use crate::{
     },
     rpc::error::RpcServeError,
 };
-use futures::{stream, FutureExt};
+use futures::FutureExt;
 use jsonrpsee::{
     core::{async_trait, RpcResult},
     Methods,
 };
-use reqwest::{Body, Client, multipart::{Form, Part}};
+use reqwest::{
+    multipart::{Form, Part},
+    Body, Client,
+};
 use serde_json;
-use tracing::info;
+use tracing::{error, info};
 
 use super::Call;
 
@@ -90,14 +93,9 @@ impl IpfsServer for IpfsApi {
     async fn add(&self) -> RpcResult<IpfsAddResponse> {
         let url = format!("{}{}", self.ipfs_base_url, "/api/v0/add");
 
-        let chunks: Vec<Result<_, ::std::io::Error>> = vec![
-            Ok("hello"),
-            Ok(" "),
-            Ok("world"),
-        ];
-        
-        let stream = stream::iter(chunks);
-        let body = Body::wrap_stream(stream);
+        let data = "hello world".as_bytes();
+
+        let body = Body::from(data);
         let part = Part::stream(body);
         let form = Form::new().part("file", part);
 
@@ -119,6 +117,28 @@ impl IpfsServer for IpfsApi {
 
         info!(">> {:?}", response);
         Ok(response)
+    }
+
+    async fn cat(&self, hash: String) -> RpcResult<String> {
+        let url = format!("{}/api/v0/cat?arg={}", self.ipfs_base_url, hash);
+        let request = || async move { self.client.post(url).send().await }.boxed();
+        match request().await {
+            Err(err) => {
+                error!("{}", err);
+                return Err(
+                    RpcServeError::Message(IpfsApiError::RequestError(err).to_string()).into(),
+                );
+            }
+            Ok(response) => {
+                let resp = response.error_for_status().map_err(|err| {
+                    RpcServeError::Message(IpfsApiError::RequestError(err).to_string())
+                })?;
+                let body = resp.text().await.map_err(|err| {
+                    RpcServeError::Message(IpfsApiError::RequestError(err).to_string())
+                })?;
+                return Ok(body);
+            }
+        }
     }
 }
 
