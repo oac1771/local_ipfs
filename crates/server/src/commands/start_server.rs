@@ -14,7 +14,6 @@ pub struct StartServerCmd {
 
 impl StartServerCmd {
     pub async fn handle(self) {
-
         let filter = EnvFilter::builder()
             .with_default_directive(LevelFilter::INFO.into())
             .from_env()

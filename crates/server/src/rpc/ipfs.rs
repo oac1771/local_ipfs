@@ -2,17 +2,18 @@ use crate::{
     api::{
         ipfs::IpfsServer,
         types::ipfs::{
-            IpfsIdResponse, IpfsPinAddResponse, IpfsPinLsResponse, IpfsPinResponse, PinAction,
+            IpfsAddResponse, IpfsIdResponse, IpfsPinAddResponse, IpfsPinLsResponse,
+            IpfsPinResponse, PinAction,
         },
     },
     rpc::error::RpcServeError,
 };
-use futures::FutureExt;
+use futures::{stream, FutureExt};
 use jsonrpsee::{
     core::{async_trait, RpcResult},
     Methods,
 };
-use reqwest::Client;
+use reqwest::{Body, Client, multipart::{Form, Part}};
 use serde_json;
 use tracing::info;
 
@@ -84,6 +85,40 @@ impl IpfsServer for IpfsApi {
             }
         };
         Ok(r)
+    }
+
+    async fn add(&self) -> RpcResult<IpfsAddResponse> {
+        let url = format!("{}{}", self.ipfs_base_url, "/api/v0/add");
+
+        let chunks: Vec<Result<_, ::std::io::Error>> = vec![
+            Ok("hello"),
+            Ok(" "),
+            Ok("world"),
+        ];
+        
+        let stream = stream::iter(chunks);
+        let body = Body::wrap_stream(stream);
+        let part = Part::stream(body);
+        let form = Form::new().part("file", part);
+
+        let request = || {
+            async move {
+                self.client
+                    .post(url)
+                    .multipart(form)
+                    .header("Content-Type", "application/octet-stream")
+                    .send()
+                    .await
+            }
+            .boxed()
+        };
+        let response = self
+            .call::<IpfsAddResponse, IpfsApiError>(request)
+            .await
+            .map_err(|err| RpcServeError::Message(err.to_string()))?;
+
+        info!(">> {:?}", response);
+        Ok(response)
     }
 }
 

@@ -14,7 +14,6 @@ pub mod ipfs {
     pub enum PinAction {
         ls,
         add,
-        // rm
     }
 
     #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -51,5 +50,13 @@ pub mod ipfs {
     pub struct IpfsPinAddResponse {
         #[serde(alias = "Keys")]
         pub keys: Value,
+    }
+
+    #[derive(Serialize, Deserialize, Clone, Debug)]
+    pub struct IpfsAddResponse {
+        #[serde(alias = "Hash")]
+        pub hash: String,
+        #[serde(alias = "Name")]
+        pub name: String,
     }
 }

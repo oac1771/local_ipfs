@@ -3,7 +3,7 @@ use crate::rpc::{ipfs::IpfsApi, util::UtilApi, Module};
 use std::env::var;
 
 use jsonrpsee::{Methods, RpcModule};
-use tracing_subscriber::{EnvFilter, Registry, reload::Handle};
+use tracing_subscriber::{reload::Handle, EnvFilter, Registry};
 
 pub(crate) struct NoI;
 pub(crate) struct NoP;
