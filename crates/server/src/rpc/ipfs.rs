@@ -2,8 +2,7 @@ use crate::{
     api::{
         ipfs::IpfsServer,
         types::ipfs::{
-            IpfsAddResponse, IpfsIdResponse, IpfsPinAddResponse, IpfsPinLsResponse,
-            IpfsPinResponse, PinAction,
+            IpfsAddResponse, IpfsIdResponse, IpfsPinAddResponse, IpfsPinLsResponse, IpfsPinResponse, IpfsPinRmResponse, PinAction
         },
     },
     rpc::error::RpcServeError,
@@ -18,7 +17,7 @@ use reqwest::{
     Body, Client,
 };
 use serde_json;
-use tracing::{error, info};
+use tracing::error;
 
 use super::Call;
 
@@ -71,7 +70,6 @@ impl IpfsServer for IpfsApi {
                     .call::<IpfsPinLsResponse, IpfsApiError>(request)
                     .await
                     .map_err(|err| RpcServeError::Message(err.to_string()))?;
-                info!("ls: {:?}", response);
                 response.into()
             }
             PinAction::add => {
@@ -83,7 +81,17 @@ impl IpfsServer for IpfsApi {
                     .call::<IpfsPinAddResponse, IpfsApiError>(request)
                     .await
                     .map_err(|err| RpcServeError::Message(err.to_string()))?;
-                info!("ls: {:?}", response);
+                response.into()
+            }
+            PinAction::rm => {
+                let hash =
+                    hash.ok_or_else(|| RpcServeError::Message("Hash not supplied".to_string()))?;
+                let url = format!("{}/api/v0/pin/rm?arg={}", self.ipfs_base_url, hash);
+                let request = || async move { self.client.post(url).send().await }.boxed();
+                let response = self
+                    .call::<IpfsPinRmResponse, IpfsApiError>(request)
+                    .await
+                    .map_err(|err| RpcServeError::Message(err.to_string()))?;
                 response.into()
             }
         };
@@ -115,7 +123,6 @@ impl IpfsServer for IpfsApi {
             .await
             .map_err(|err| RpcServeError::Message(err.to_string()))?;
 
-        info!(">> {:?}", response);
         Ok(response)
     }
 
@@ -125,17 +132,16 @@ impl IpfsServer for IpfsApi {
         match request().await {
             Err(err) => {
                 error!("{}", err);
-                return Err(
-                    RpcServeError::Message(IpfsApiError::RequestError(err).to_string()).into(),
-                );
+                return Err(RpcServeError::Message(err.to_string()).into());
             }
             Ok(response) => {
-                let resp = response.error_for_status().map_err(|err| {
-                    RpcServeError::Message(IpfsApiError::RequestError(err).to_string())
-                })?;
-                let body = resp.text().await.map_err(|err| {
-                    RpcServeError::Message(IpfsApiError::RequestError(err).to_string())
-                })?;
+                let resp = response
+                    .error_for_status()
+                    .map_err(|err| RpcServeError::Message(err.to_string()))?;
+                let body = resp
+                    .text()
+                    .await
+                    .map_err(|err| RpcServeError::Message(err.to_string()))?;
                 return Ok(body);
             }
         }

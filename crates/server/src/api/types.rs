@@ -14,12 +14,14 @@ pub mod ipfs {
     pub enum PinAction {
         ls,
         add,
+        rm,
     }
 
     #[derive(Serialize, Deserialize, Clone, Debug)]
     pub enum IpfsPinResponse {
         Ls(IpfsPinLsResponse),
         Add(IpfsPinAddResponse),
+        Rm(IpfsPinRmResponse),
     }
 
     impl From<IpfsPinLsResponse> for IpfsPinResponse {
@@ -31,6 +33,12 @@ pub mod ipfs {
     impl From<IpfsPinAddResponse> for IpfsPinResponse {
         fn from(value: IpfsPinAddResponse) -> Self {
             Self::Add(value)
+        }
+    }
+
+    impl From<IpfsPinRmResponse> for IpfsPinResponse {
+        fn from(value: IpfsPinRmResponse) -> Self {
+            Self::Rm(value)
         }
     }
 
@@ -50,6 +58,12 @@ pub mod ipfs {
     pub struct IpfsPinAddResponse {
         #[serde(alias = "Keys")]
         pub keys: Value,
+    }
+
+    #[derive(Serialize, Deserialize, Clone, Debug)]
+    pub struct IpfsPinRmResponse {
+        #[serde(alias = "Pins")]
+        pub pins: Vec<String>,
     }
 
     #[derive(Serialize, Deserialize, Clone, Debug)]

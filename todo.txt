@@ -1,7 +1,4 @@
 server
-    - ipfs rpc:
-        - rm
-        - pin rm
 
 cli
     - run as cli or run as tui (ratatui)
