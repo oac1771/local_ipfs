@@ -1,4 +1,4 @@
-use crate::commands::ping::PingCommand;
+use crate::commands::util::UtilCommand;
 use clap::{Parser, Subcommand};
 use jsonrpsee::ws_client::WsClientBuilder;
 
@@ -15,18 +15,21 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 enum Command {
     File,
-    Ping(PingCommand),
+    Util(UtilCommand),
 }
 
 pub async fn run() {
     let args = Cli::parse();
-    let client = WsClientBuilder::default()
-        .build(&args.server_url)
-        .await
-        .unwrap();
 
-    match args.command {
-        Command::File => {}
-        Command::Ping(cmd) => cmd.handle(client).await,
-    };
+    match WsClientBuilder::default().build(&args.server_url).await {
+        Ok(client) => {
+            match args.command {
+                Command::File => {}
+                Command::Util(cmd) => cmd.handle(client).await,
+            };
+        }
+        Err(err) => {
+            eprintln!("Error building WebSocket client: {}", err);
+        }
+    }
 }
