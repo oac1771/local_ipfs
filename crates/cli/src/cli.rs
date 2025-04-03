@@ -1,4 +1,4 @@
-use crate::commands::util::UtilCommand;
+use crate::commands::{file::FileCommand, util::UtilCommand};
 use clap::{Parser, Subcommand};
 use jsonrpsee::ws_client::WsClientBuilder;
 
@@ -14,7 +14,7 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    File,
+    File(FileCommand),
     Util(UtilCommand),
 }
 
@@ -24,7 +24,7 @@ pub async fn run() {
     match WsClientBuilder::default().build(&args.server_url).await {
         Ok(client) => {
             match args.command {
-                Command::File => {}
+                Command::File(cmd) => cmd.handle(client).await,
                 Command::Util(cmd) => cmd.handle(client).await,
             };
         }

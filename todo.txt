@@ -1,9 +1,10 @@
 server
 
 cli
-    - run as cli or run as tui (ratatui)
-        - could be both?
     - create command that reads file, encrypts, sends bytes to server to add to ipfs
+    - create command that gets from ipfs, decrypts, and prints to std
+    - start/stop docker compose 
+        - would need server image to be in remote public registry
 
 
 docker compose to run:
@@ -11,3 +12,5 @@ docker compose to run:
 - rpc to interact with grafana/prometheus
 - grafana
 - prometheus
+
+encrypt: https://docs.rs/openssl/0.10.71/openssl/encrypt/index.html
