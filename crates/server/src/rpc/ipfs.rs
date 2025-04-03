@@ -2,7 +2,8 @@ use crate::{
     api::{
         ipfs::IpfsServer,
         types::ipfs::{
-            IpfsAddResponse, IpfsIdResponse, IpfsPinAddResponse, IpfsPinLsResponse, IpfsPinResponse, IpfsPinRmResponse, PinAction
+            IpfsAddResponse, IpfsIdResponse, IpfsPinAddResponse, IpfsPinLsResponse,
+            IpfsPinResponse, IpfsPinRmResponse, PinAction,
         },
     },
     rpc::error::RpcServeError,

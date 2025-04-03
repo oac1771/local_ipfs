@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+clap = { workspace = true, features = ["derive"] }
 jsonrpsee = { workspace = true , features = ["client"] }
 server = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }
