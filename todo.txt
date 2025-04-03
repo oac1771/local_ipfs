@@ -2,7 +2,8 @@ server
 
 cli
     - run as cli or run as tui (ratatui)
-        - could be both? 
+        - could be both?
+    - create command that reads file, encrypts, sends bytes to server to add to ipfs
 
 
 docker compose to run:

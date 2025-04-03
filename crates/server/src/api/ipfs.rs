@@ -10,7 +10,7 @@ pub trait Ipfs {
     async fn pin(&self, pin_action: PinAction, hash: Option<String>) -> RpcResult<IpfsPinResponse>;
 
     #[method(name = "add")]
-    async fn add(&self) -> RpcResult<IpfsAddResponse>;
+    async fn add(&self, data: Vec<u8>) -> RpcResult<IpfsAddResponse>;
 
     #[method(name = "cat")]
     async fn cat(&self, hash: String) -> RpcResult<String>;

@@ -1,0 +1,9 @@
+[package]
+name = "cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+jsonrpsee = { workspace = true , features = ["client"] }
+server = { workspace = true }
+tokio = { workspace = true }

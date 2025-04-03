@@ -7,6 +7,7 @@ use crate::{
     },
     rpc::error::RpcServeError,
 };
+use bytes::Bytes;
 use futures::FutureExt;
 use jsonrpsee::{
     core::{async_trait, RpcResult},
@@ -98,12 +99,11 @@ impl IpfsServer for IpfsApi {
         Ok(r)
     }
 
-    async fn add(&self) -> RpcResult<IpfsAddResponse> {
+    async fn add(&self, data: Vec<u8>) -> RpcResult<IpfsAddResponse> {
         let url = format!("{}{}", self.ipfs_base_url, "/api/v0/add");
+        let bytes = Bytes::from_iter(data.into_iter());
 
-        let data = "hello world".as_bytes();
-
-        let body = Body::from(data);
+        let body = Body::from(bytes);
         let part = Part::stream(body);
         let form = Form::new().part("file", part);
 

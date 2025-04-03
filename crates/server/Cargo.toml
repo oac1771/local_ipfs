@@ -1,9 +1,10 @@
 [package]
 name = "server"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
+bytes = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true }
 jsonrpsee = { workspace = true , features = ["server", "macros", "client"] }
