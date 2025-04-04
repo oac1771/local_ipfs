@@ -20,19 +20,21 @@ enum Command {
 }
 
 impl UtilCommand {
-    pub async fn handle(&self, client: Client) {
-        match &self.command {
-            Command::Ping => self.ping(client).await,
-            Command::UpdateLogLevel { log_level } => self.update_log_level(client, log_level).await,
+    pub async fn handle(self, client: Client) {
+        match self.command {
+            Command::Ping => self.ping(&client).await,
+            Command::UpdateLogLevel { ref log_level } => {
+                self.update_log_level(&client, log_level).await
+            }
         }
     }
 
-    async fn ping(&self, client: Client) {
+    async fn ping(&self, client: &Client) {
         let pong = client.ping().await.unwrap();
         println!(">>> {:?}", pong);
     }
 
-    async fn update_log_level<T: Into<String>>(&self, client: Client, log_level: T) {
+    async fn update_log_level<T: Into<String>>(&self, client: &Client, log_level: T) {
         let _ = client.update_log_level(log_level.into()).await.unwrap();
     }
 }

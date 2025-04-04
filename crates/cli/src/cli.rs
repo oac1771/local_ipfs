@@ -1,4 +1,4 @@
-use crate::commands::{file::FileCommand, util::UtilCommand};
+use crate::commands::{create_key::CreateKey, file::FileCommand, util::UtilCommand};
 use clap::{Parser, Subcommand};
 use jsonrpsee::ws_client::WsClientBuilder;
 
@@ -16,6 +16,7 @@ pub struct Cli {
 enum Command {
     File(FileCommand),
     Util(UtilCommand),
+    CreateKey(CreateKey),
 }
 
 pub async fn run() {
@@ -26,6 +27,7 @@ pub async fn run() {
             match args.command {
                 Command::File(cmd) => cmd.handle(client).await,
                 Command::Util(cmd) => cmd.handle(client).await,
+                Command::CreateKey(cmd) => cmd.handle().await,
             };
         }
         Err(err) => {

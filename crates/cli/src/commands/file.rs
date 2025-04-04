@@ -21,14 +21,14 @@ enum Command {
     Get {
         #[arg(long)]
         hash: String,
-    }
+    },
 }
 
 impl FileCommand {
-    pub async fn handle(&self, client: Client) {
-        match &self.command {
-            Command::Add { file_path } => self.add(&client, file_path).await,
-            Command::Get { hash } => self.get(&client, hash).await
+    pub async fn handle(self, client: Client) {
+        match self.command {
+            Command::Add { ref file_path } => self.add(&client, file_path).await,
+            Command::Get { ref hash } => self.get(&client, hash).await,
         };
     }
 
@@ -38,7 +38,7 @@ impl FileCommand {
 
         if let Err(err) = file.read_to_end(&mut data).await {
             eprintln!("Error reading file: {}", err);
-            return 
+            return;
         }
         println!(">> {:?}", data);
         println!(">> {}", std::str::from_utf8(&data).unwrap());
@@ -48,5 +48,4 @@ impl FileCommand {
     async fn get(&self, client: &Client, hash: impl Into<String>) {
         let _cat_response = client.cat(hash.into()).await.unwrap();
     }
-
 }
