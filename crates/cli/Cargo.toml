@@ -4,9 +4,10 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-aead = { workspace = true , features = ["stream"] }
+aes-gcm = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 jsonrpsee = { workspace = true , features = ["client"] }
 server = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

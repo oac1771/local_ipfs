@@ -11,7 +11,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
-aead = "0.5.2"
+aes-gcm = "0.10.3"
 bytes = "1.10.1"
 clap = "4.5.3"
 futures = "0.3.27"

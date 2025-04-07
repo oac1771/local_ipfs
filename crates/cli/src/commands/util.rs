@@ -2,6 +2,8 @@ use clap::{Parser, Subcommand};
 use jsonrpsee::async_client::Client;
 use server::api::util::UtilClient;
 
+use super::error::CommandError;
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct UtilCommand {
@@ -20,13 +22,15 @@ enum Command {
 }
 
 impl UtilCommand {
-    pub async fn handle(self, client: Client) {
+    pub async fn handle(self, client: Client) -> Result<(), CommandError> {
         match self.command {
             Command::Ping => self.ping(&client).await,
             Command::UpdateLogLevel { ref log_level } => {
                 self.update_log_level(&client, log_level).await
             }
         }
+
+        Ok(())
     }
 
     async fn ping(&self, client: &Client) {

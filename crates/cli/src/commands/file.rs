@@ -4,6 +4,8 @@ use server::api::ipfs::IpfsClient;
 use std::path::Path;
 use tokio::{fs::File, io::AsyncReadExt};
 
+use super::error::CommandError;
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct FileCommand {
@@ -25,11 +27,13 @@ enum Command {
 }
 
 impl FileCommand {
-    pub async fn handle(self, client: Client) {
+    pub async fn handle(self, client: Client) -> Result<(), CommandError> {
         match self.command {
             Command::Add { ref file_path } => self.add(&client, file_path).await,
             Command::Get { ref hash } => self.get(&client, hash).await,
         };
+
+        Ok(())
     }
 
     async fn add(&self, _client: &Client, file_path: impl AsRef<Path>) {

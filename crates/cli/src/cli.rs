@@ -24,11 +24,15 @@ pub async fn run() {
 
     match WsClientBuilder::default().build(&args.server_url).await {
         Ok(client) => {
-            match args.command {
+            let result = match args.command {
                 Command::File(cmd) => cmd.handle(client).await,
                 Command::Util(cmd) => cmd.handle(client).await,
                 Command::CreateKey(cmd) => cmd.handle().await,
             };
+
+            if let Err(err) = result {
+                eprintln!("{}", err);
+            }
         }
         Err(err) => {
             eprintln!("Error building WebSocket client: {}", err);

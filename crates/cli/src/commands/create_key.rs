@@ -1,32 +1,31 @@
+use aes_gcm::{
+    aead::{KeyInit, OsRng},
+    Aes256Gcm,
+};
 use clap::Parser;
-use std::{env::current_dir, path::PathBuf};
-use aead::{KeyInit, AeadCore};
+use tokio::{fs::File, io::AsyncWriteExt};
 
-const PRIVATE_KEY_FILE_NAME: &'static str = "private_key.pem";
+use super::{get_key_file_path, error::CommandError};
+
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-pub struct CreateKey {
-    #[arg(long)]
-    output_file_path: Option<String>,
-}
+pub struct CreateKey;
 
 impl CreateKey {
-    pub async fn handle(self) {
+    pub async fn handle(self) -> Result<(), CommandError> {
 
+        let key_file_path = get_key_file_path()?;
 
-        let output_file_path = if let Some(file_path) = self.output_file_path {
-            Ok(PathBuf::from(&file_path))
+        if !key_file_path.try_exists()? {
+            let key = Aes256Gcm::generate_key(OsRng);
+            let mut file = File::create(&key_file_path).await?;
+            file.write_all(&key).await?;
+            println!("Encryption key written to {:#?}", key_file_path.to_string_lossy());
         } else {
-            match current_dir() {
-                Ok(mut dir) => {
-                    dir.push(PRIVATE_KEY_FILE_NAME);
-                    Ok(dir)
-                },
-                Err(err) => Err(err),
-            }
-        }.unwrap();
+            println!("Encryption already exists at {:#?}", key_file_path.to_string_lossy());
+        }
 
-        println!(">>> {:?}", output_file_path);
+        Ok(())
     }
 }
