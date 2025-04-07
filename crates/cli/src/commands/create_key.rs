@@ -1,5 +1,6 @@
 use clap::Parser;
 use std::{env::current_dir, path::PathBuf};
+use aead::{KeyInit, AeadCore};
 
 const PRIVATE_KEY_FILE_NAME: &'static str = "private_key.pem";
 
@@ -12,6 +13,7 @@ pub struct CreateKey {
 
 impl CreateKey {
     pub async fn handle(self) {
+
 
         let output_file_path = if let Some(file_path) = self.output_file_path {
             Ok(PathBuf::from(&file_path))
