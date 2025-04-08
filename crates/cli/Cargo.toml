@@ -6,7 +6,10 @@ edition.workspace = true
 [dependencies]
 aes-gcm = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
+home = { workspace = true }
 jsonrpsee = { workspace = true , features = ["client"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 server = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }

@@ -9,7 +9,6 @@ pub enum CommandError {
     #[error("{source}")]
     JsonRpsee {
         #[from]
-        source: jsonrpsee::core::client::Error
-    }
-
+        source: jsonrpsee::core::client::Error,
+    },
 }
