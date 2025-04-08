@@ -1,9 +1,6 @@
 server
 
 cli
-    - create config object that read/writes to file at $HOME
-        - should contain encryption key
-        - should contain ipfs hashes and maybe descyptions?
 
     - create command that reads file, encrypts, sends bytes to server to add to ipfs
     - create command that gets from ipfs, decrypts, and prints to std

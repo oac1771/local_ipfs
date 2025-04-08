@@ -24,10 +24,10 @@ enum Command {
 pub async fn run() {
     let args = Cli::parse();
 
-    let _config = Config::parse().await;
+    let mut config = Config::parse().await;
 
     let result = if let Command::CreateKey(cmd) = args.command {
-        cmd.handle().await
+        cmd.handle(&mut config).await
     } else {
         match WsClientBuilder::default().build(&args.server_url).await {
             Ok(client) => match args.command {
@@ -39,7 +39,9 @@ pub async fn run() {
         }
     };
 
-    if let Err(err) = result {
-        eprintln!("{}", err);
+    match result {
+        Ok(_) => config.update_config_file().await,
+        Err(err) => eprintln!("{}", err)
     }
+
 }
