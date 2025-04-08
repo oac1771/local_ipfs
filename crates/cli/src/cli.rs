@@ -22,20 +22,23 @@ enum Command {
 pub async fn run() {
     let args = Cli::parse();
 
-    match WsClientBuilder::default().build(&args.server_url).await {
-        Ok(client) => {
-            let result = match args.command {
-                Command::File(cmd) => cmd.handle(client).await,
-                Command::Util(cmd) => cmd.handle(client).await,
-                Command::CreateKey(cmd) => cmd.handle().await,
-            };
-
-            if let Err(err) = result {
-                eprintln!("{}", err);
+    let result  = if let Command::CreateKey(cmd) = args.command {
+        cmd.handle().await
+    } else {
+        match WsClientBuilder::default().build(&args.server_url).await {
+            Ok(client) => {
+                match args.command {
+                    Command::File(cmd) => cmd.handle(client).await,
+                    Command::Util(cmd) => cmd.handle(client).await,
+                    Command::CreateKey(_) => Ok(()),
+                }
             }
+            Err(err) => Err(err.into())
         }
-        Err(err) => {
-            eprintln!("Error building WebSocket client: {}", err);
-        }
+    };
+
+    if let Err(err) = result {
+        eprintln!("{}", err);
     }
+
 }
