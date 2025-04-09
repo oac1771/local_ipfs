@@ -4,6 +4,8 @@ use serde_json;
 use std::path::PathBuf;
 use tokio::fs;
 
+use super::error::CommandError;
+
 const CONFIG_FILE_NAME: &str = ".local_ipfs_config.json";
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -12,32 +14,34 @@ pub struct Config {
 }
 
 impl Config {
-    pub async fn parse() -> Self {
-        let config_path = Self::config_path();
+    pub async fn parse() -> Result<Self, CommandError> {
+        let config_path = Self::config_path()?;
 
-        if config_path.exists() {
-            let contents = fs::read_to_string(config_path).await.unwrap();
-            let config = serde_json::from_str::<Config>(&contents).unwrap();
-            config
+        let config = if config_path.exists() {
+            let contents = fs::read_to_string(config_path).await?;
+            serde_json::from_str::<Config>(&contents)?
         } else {
             let config = Config::default();
-            let contents = serde_json::to_string(&config).unwrap();
-            fs::write(config_path, contents).await.unwrap();
-
+            let contents = serde_json::to_string(&config)?;
+            fs::write(config_path, contents).await?;
             config
-        }
+        };
+        Ok(config)
     }
 
-    fn config_path() -> PathBuf {
-        let mut config_path = home_dir().unwrap();
+    fn config_path() -> Result<PathBuf, CommandError> {
+        let mut config_path =
+            home_dir().ok_or_else(|| CommandError::Error("Unable to get home directory".into()))?;
         config_path.push(CONFIG_FILE_NAME);
-        config_path
+        Ok(config_path)
     }
 
-    pub async fn update_config_file(self) {
-        let config_path = Self::config_path();
-        let contents = serde_json::to_string(&self).unwrap();
-        fs::write(config_path, contents).await.unwrap();
+    pub async fn update_config_file(self) -> Result<(), CommandError> {
+        let config_path = Self::config_path()?;
+        let contents = serde_json::to_string(&self)?;
+        fs::write(config_path, contents).await?;
+
+        Ok(())
     }
 
     pub fn encryption_key(&self) -> &Vec<u8> {

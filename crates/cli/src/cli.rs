@@ -1,5 +1,5 @@
 use crate::commands::{
-    config::Config, create_key::CreateKey, file::FileCommand, util::UtilCommand,
+    config::Config, create_key::CreateKey, file::FileCommand, util::UtilCommand, error::CommandError
 };
 use clap::{Parser, Subcommand};
 use jsonrpsee::ws_client::WsClientBuilder;
@@ -24,24 +24,33 @@ enum Command {
 pub async fn run() {
     let args = Cli::parse();
 
-    let mut config = Config::parse().await;
+    let mut config = match Config::parse().await {
+        Ok(config) => config,
+        Err(err) => {
+            println!("Error parsing config: {}", err);
+            return
+        }
+    };
 
     let result = if let Command::CreateKey(cmd) = args.command {
         cmd.handle(&mut config).await
     } else {
         match WsClientBuilder::default().build(&args.server_url).await {
             Ok(client) => match args.command {
-                Command::File(cmd) => cmd.handle(client).await,
+                Command::File(cmd) => cmd.handle(client, &config).await,
                 Command::Util(cmd) => cmd.handle(client).await,
                 Command::CreateKey(_) => Ok(()),
             },
-            Err(err) => Err(err.into()),
+            Err(err) => Err(CommandError::JsonRpsee { source: err }),
         }
     };
 
     match result {
-        Ok(_) => config.update_config_file().await,
-        Err(err) => eprintln!("{}", err)
+        Ok(_) => {
+            if let Err(err) = config.update_config_file().await {
+                eprintln!("Error updating config file: {}", err);
+            }
+        },
+        Err(err) => eprintln!("{}", err),
     }
-
 }

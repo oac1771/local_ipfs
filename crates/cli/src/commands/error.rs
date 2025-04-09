@@ -6,9 +6,18 @@ pub enum CommandError {
         source: std::io::Error,
     },
 
-    #[error("{source}")]
+    #[error("JsonRpsee Error: {source}")]
     JsonRpsee {
         #[from]
         source: jsonrpsee::core::client::Error,
     },
+
+    #[error("{source}")]
+    SerdeJson {
+        #[from]
+        source: serde_json::Error,
+    },
+
+    #[error("Error: {0}")]
+    Error(String),
 }

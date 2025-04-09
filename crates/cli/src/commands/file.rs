@@ -4,7 +4,7 @@ use server::api::ipfs::IpfsClient;
 use std::path::Path;
 use tokio::{fs::File, io::AsyncReadExt};
 
-use super::error::CommandError;
+use super::{config::Config, error::CommandError};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -27,29 +27,28 @@ enum Command {
 }
 
 impl FileCommand {
-    pub async fn handle(self, client: Client) -> Result<(), CommandError> {
+    pub async fn handle(self, client: Client, config: &Config) -> Result<(), CommandError> {
         match self.command {
-            Command::Add { ref file_path } => self.add(&client, file_path).await,
-            Command::Get { ref hash } => self.get(&client, hash).await,
+            Command::Add { ref file_path } => self.add(&client, file_path, config).await?,
+            Command::Get { ref hash } => self.get(&client, hash, config).await,
         };
 
         Ok(())
     }
 
-    async fn add(&self, _client: &Client, file_path: impl AsRef<Path>) {
-        let mut file = File::open(file_path).await.unwrap();
+    async fn add(&self, _client: &Client, file_path: impl AsRef<Path>, _config: &Config) -> Result<(), CommandError> {
+        let mut file = File::open(file_path).await?;
         let mut data = vec![];
+        file.read_to_end(&mut data).await?;
 
-        if let Err(err) = file.read_to_end(&mut data).await {
-            eprintln!("Error reading file: {}", err);
-            return;
-        }
         println!(">> {:?}", data);
         println!(">> {}", std::str::from_utf8(&data).unwrap());
         // let _add_response = client.add(data).await.unwrap();
+
+        Ok(())
     }
 
-    async fn get(&self, client: &Client, hash: impl Into<String>) {
+    async fn get(&self, client: &Client, hash: impl Into<String>, _config: &Config) {
         let _cat_response = client.cat(hash.into()).await.unwrap();
     }
 }
