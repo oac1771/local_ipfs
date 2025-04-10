@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use jsonrpsee::async_client::Client;
 use server::api::ipfs::IpfsClient;
-use std::path::Path;
+use std::{path::Path, fmt::Debug, marker::Copy};
 use tokio::{fs::File, io::AsyncReadExt};
 
 use crate::services::encryption::Encryption;
@@ -45,7 +45,7 @@ impl FileCommand {
         config: &Config,
     ) -> Result<(), CommandError>
     where
-        F: AsRef<Path> + std::fmt::Debug + std::marker::Copy,
+        F: AsRef<Path> + Debug + Copy,
     {
         let encryption_key = if let Some(encryption_key) = config.encryption_key() {
             encryption_key
@@ -60,21 +60,57 @@ impl FileCommand {
         file.read_to_end(&mut contents).await?;
 
         let data = Encryption::encrypt(encryption_key, &contents);
-        let add_response = client.add(data).await?;
+        let data = bytes_to_string_literal(&data);
+
+        println!("Data: {:?}", data);
+        let add_response = client.add(data.as_bytes().to_vec()).await?;
         println!("File {:?} added to ipfs: {}", file_path, add_response.hash);
 
         Ok(())
     }
 
-    async fn get<H>(&self, client: &Client, hash: H, _config: &Config) -> Result<(), CommandError>
+    async fn get<H>(&self, client: &Client, hash: H, config: &Config) -> Result<(), CommandError>
     where
-        H: Into<String> + std::fmt::Debug + std::marker::Copy,
+        H: Into<String> + Debug + Copy,
     {
+        let encryption_key = if let Some(encryption_key) = config.encryption_key() {
+            encryption_key
+        } else {
+            return Err(CommandError::Error(
+                "Encryption key not found in config, please create encryption key".into(),
+            ));
+        };
+
         let cat_response = client.cat(hash.into()).await?;
         // decrypt here...
+        let data = string_literal_to_bytes(&cat_response);
+        let decrypted_data = Encryption::decrypt(encryption_key, &data);
 
-        println!("File contents from ipfs {:?} file: {}", hash, cat_response);
+        println!("File contents from ipfs {:?} file: {:?}", hash, cat_response);
+        println!("data >> {:?}", data);
+        println!("decrypted data >>> {}", String::from_utf8_lossy(&decrypted_data));
 
         Ok(())
     }
+}
+
+
+// turn these into iterators...
+fn bytes_to_string_literal(bytes: &[u8]) -> String {
+    let mut result = String::from("[");
+    
+    for (index, byte) in bytes.iter().enumerate() {
+        result.push_str(&byte.to_string());
+        
+        if index < bytes.len() - 1 {
+            result.push(',');
+        }
+    }
+    result.push(']');
+    
+    return result
+}
+
+fn string_literal_to_bytes(string: &str) -> Vec<u8> {
+    serde_json::from_str::<Vec<u8>>(string).unwrap()
 }

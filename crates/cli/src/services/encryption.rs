@@ -25,7 +25,7 @@ impl Encryption {
         result
     }
 
-    pub fn _decrypt(encryption_key: &Vec<u8>, data: &[u8]) -> Vec<u8> {
+    pub fn decrypt(encryption_key: &Vec<u8>, data: &[u8]) -> Vec<u8> {
         let key = Key::<Aes256Gcm>::from_slice(encryption_key);
         let cipher = Aes256Gcm::new(&key);
 
@@ -48,7 +48,7 @@ mod test {
         let encryption_key = Encryption::generate_key().to_vec();
         let data = b"hello world";
         let ciphertext = Encryption::encrypt(&encryption_key, data);
-        let result = Encryption::_decrypt(&encryption_key, &ciphertext);
+        let result = Encryption::decrypt(&encryption_key, &ciphertext);
 
         assert_eq!(result.as_slice(), data.as_slice());
     }
