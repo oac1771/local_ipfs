@@ -1,5 +1,6 @@
 server
-
+    - add info logs to adding and reading ipfs file
+    - look into gossiping so changes can propogate over the network 
 cli
     
     - create command that reads file, encrypts, sends bytes to server to add to ipfs
@@ -14,4 +15,5 @@ docker compose to run:
 - grafana
 - prometheus
 
-encrypt: https://docs.rs/openssl/0.10.71/openssl/encrypt/index.html
+
+global flags: https://stackoverflow.com/questions/74987368/how-to-use-global-option-when-subcommands-are-defined-when-using-clap-in-rust

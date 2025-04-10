@@ -1,6 +1,5 @@
 use home::home_dir;
 use serde::{Deserialize, Serialize};
-use serde_json;
 use std::path::PathBuf;
 use tokio::fs;
 
@@ -8,7 +7,7 @@ use super::error::CommandError;
 
 const CONFIG_FILE_NAME: &str = ".local_ipfs_config.json";
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Default)]
 pub struct Config {
     encryption_key: Vec<u8>,
 }
@@ -44,19 +43,15 @@ impl Config {
         Ok(())
     }
 
-    pub fn encryption_key(&self) -> &Vec<u8> {
-        &self.encryption_key
+    pub fn encryption_key(&self) -> Option<&Vec<u8>> {
+        if self.encryption_key.is_empty() {
+            None
+        } else {
+            Some(&self.encryption_key)
+        }
     }
 
     pub fn update_encryption_key(&mut self, encryption_key: Vec<u8>) {
         self.encryption_key = encryption_key
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            encryption_key: vec![],
-        }
     }
 }

@@ -1,5 +1,6 @@
 use crate::commands::{
-    config::Config, create_key::CreateKey, file::FileCommand, util::UtilCommand, error::CommandError
+    config::Config, create_key::CreateKey, error::CommandError, file::FileCommand,
+    util::UtilCommand,
 };
 use clap::{Parser, Subcommand};
 use jsonrpsee::ws_client::WsClientBuilder;
@@ -28,7 +29,7 @@ pub async fn run() {
         Ok(config) => config,
         Err(err) => {
             println!("Error parsing config: {}", err);
-            return
+            return;
         }
     };
 
@@ -50,7 +51,7 @@ pub async fn run() {
             if let Err(err) = config.update_config_file().await {
                 eprintln!("Error updating config file: {}", err);
             }
-        },
+        }
         Err(err) => eprintln!("{}", err),
     }
 }
