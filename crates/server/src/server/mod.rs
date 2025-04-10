@@ -19,13 +19,10 @@ impl Server {
         }
     }
 
-    pub async fn run(self) {
+    pub async fn run(self) -> Result<(), std::io::Error> {
         let addr = format!("{0}:{1}", self.ip, self.port);
         info!("Starting Server on: {}", addr);
-        let server = JosnRpseeServerBuilder::default()
-            .build(&addr)
-            .await
-            .unwrap();
+        let server = JosnRpseeServerBuilder::default().build(&addr).await?;
 
         let server_handle = server.start(self.rpc_module);
 
@@ -42,5 +39,7 @@ impl Server {
         if let Err(err) = server_handle.stop() {
             error!("Error while stoping server: {}", err);
         };
+
+        Ok(())
     }
 }

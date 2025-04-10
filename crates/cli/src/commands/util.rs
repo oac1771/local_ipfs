@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use jsonrpsee::async_client::Client;
 use server::api::util::UtilClient;
+use std::{fmt::Display, marker::Copy};
 
 use super::error::CommandError;
 
@@ -24,21 +25,28 @@ enum Command {
 impl UtilCommand {
     pub async fn handle(self, client: Client) -> Result<(), CommandError> {
         match self.command {
-            Command::Ping => self.ping(&client).await,
+            Command::Ping => self.ping(&client).await?,
             Command::UpdateLogLevel { ref log_level } => {
-                self.update_log_level(&client, log_level).await
+                self.update_log_level(&client, log_level).await?
             }
         }
 
         Ok(())
     }
 
-    async fn ping(&self, client: &Client) {
-        let pong = client.ping().await.unwrap();
-        println!(">>> {:?}", pong);
+    async fn ping(&self, client: &Client) -> Result<(), CommandError> {
+        let pong = client.ping().await?;
+        println!("{:?}", pong);
+        Ok(())
     }
 
-    async fn update_log_level<T: Into<String>>(&self, client: &Client, log_level: T) {
-        let _ = client.update_log_level(log_level.into()).await.unwrap();
+    async fn update_log_level<T: Into<String> + Display + Copy>(
+        &self,
+        client: &Client,
+        log_level: T,
+    ) -> Result<(), CommandError> {
+        client.update_log_level(log_level.into()).await?;
+        println!("log level updated to: {}", log_level);
+        Ok(())
     }
 }

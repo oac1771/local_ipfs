@@ -1,10 +1,9 @@
 server
     - add info logs to adding and reading ipfs file
+    - endpoint for grafana to show what hashes are being pinned 
     - look into gossiping so changes can propogate over the network 
 cli
     - change config to be type state so you wouldnt need to get if encryption key is empty, can be compile time check?
-    - create command that reads file, encrypts, sends bytes to server to add to ipfs
-    - create command that gets from ipfs, decrypts, and prints to std
     - start/stop docker compose 
         - would need server image to be in remote public registry
 

@@ -16,7 +16,11 @@ enum Command {
 pub async fn run() {
     let args = Cli::parse();
 
-    match args.command {
+    let result = match args.command {
         Command::StartServer(cmd) => cmd.handle().await,
     };
+
+    if let Err(err) = result {
+        println!("Error: {}", err)
+    }
 }

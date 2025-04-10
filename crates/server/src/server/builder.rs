@@ -1,8 +1,8 @@
 use super::Server;
 use crate::rpc::{ipfs::IpfsApi, util::UtilApi, Module};
-use std::env::var;
+use std::{env::var, ops::ControlFlow};
 
-use jsonrpsee::{Methods, RpcModule};
+use jsonrpsee::{core::RegisterMethodError, Methods, RpcModule};
 use tracing_subscriber::{reload::Handle, EnvFilter, Registry};
 
 pub(crate) struct NoI;
@@ -52,9 +52,12 @@ impl<I, P, M> ServerBuilder<I, P, M> {
 }
 
 impl ServerBuilder<String, String, Vec<Module>> {
-    pub fn build(self, reload_handle: Handle<EnvFilter, Registry>) -> Server {
+    pub fn build(
+        self,
+        reload_handle: Handle<EnvFilter, Registry>,
+    ) -> Result<Server, RegisterMethodError> {
         let mut rpc_module = RpcModule::new(());
-        self.modules.into_iter().for_each(|m| {
+        let result = self.modules.into_iter().try_for_each(|m| {
             let methods: Methods = match m {
                 Module::Ipfs => {
                     let ipfs_base_url =
@@ -63,9 +66,15 @@ impl ServerBuilder<String, String, Vec<Module>> {
                 }
                 Module::Util => UtilApi::new(reload_handle.clone()).into(),
             };
-            rpc_module.merge(methods).unwrap();
+            match rpc_module.merge(methods) {
+                Ok(_) => ControlFlow::Continue(()),
+                Err(err) => ControlFlow::Break(err),
+            }
         });
 
-        Server::new(rpc_module, self.port, self.ip)
+        match result {
+            ControlFlow::Continue(()) => Ok(Server::new(rpc_module, self.port, self.ip)),
+            ControlFlow::Break(err) => Err(err),
+        }
     }
 }

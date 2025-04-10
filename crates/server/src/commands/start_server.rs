@@ -3,6 +3,8 @@ use clap::Parser;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{fmt, prelude::*, reload, EnvFilter};
 
+use super::error::CommandError;
+
 #[derive(Debug, Parser)]
 pub struct StartServerCmd {
     #[arg(long, default_value = "8008")]
@@ -13,11 +15,10 @@ pub struct StartServerCmd {
 }
 
 impl StartServerCmd {
-    pub async fn handle(self) {
+    pub async fn handle(self) -> Result<(), CommandError> {
         let filter = EnvFilter::builder()
             .with_default_directive(LevelFilter::INFO.into())
-            .from_env()
-            .unwrap();
+            .from_env()?;
         let (layer, reload_handle) = reload::Layer::new(filter);
         tracing_subscriber::registry()
             .with(layer)
@@ -30,8 +31,10 @@ impl StartServerCmd {
             .with_ip(self.ip)
             .with_port(self.port)
             .with_modules(modules)
-            .build(reload_handle);
+            .build(reload_handle)?;
 
-        server.run().await;
+        server.run().await?;
+
+        Ok(())
     }
 }

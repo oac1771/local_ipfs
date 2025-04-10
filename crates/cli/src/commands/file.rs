@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use jsonrpsee::async_client::Client;
 use server::api::ipfs::IpfsClient;
-use std::{path::Path, fmt::Debug, marker::Copy};
+use std::{fmt::Debug, marker::Copy, path::Path};
 use tokio::{fs::File, io::AsyncReadExt};
 
 use crate::services::encryption::Encryption;
@@ -59,10 +59,10 @@ impl FileCommand {
         let mut contents = vec![];
         file.read_to_end(&mut contents).await?;
 
-        let data = Encryption::encrypt(encryption_key, &contents);
+        let data = Encryption::encrypt(encryption_key, &contents)
+            .map_err(|err| CommandError::Aead(err.to_string()))?;
         let data = bytes_to_string_literal(&data);
 
-        println!("Data: {:?}", data);
         let add_response = client.add(data.as_bytes().to_vec()).await?;
         println!("File {:?} added to ipfs: {}", file_path, add_response.hash);
 
@@ -82,35 +82,36 @@ impl FileCommand {
         };
 
         let cat_response = client.cat(hash.into()).await?;
-        // decrypt here...
-        let data = string_literal_to_bytes(&cat_response);
-        let decrypted_data = Encryption::decrypt(encryption_key, &data);
+        let data = string_literal_to_bytes(&cat_response)?;
+        let decrypted_data = Encryption::decrypt(encryption_key, &data)
+            .map_err(|err| CommandError::Aead(err.to_string()))?;
 
-        println!("File contents from ipfs {:?} file: {:?}", hash, cat_response);
-        println!("data >> {:?}", data);
-        println!("decrypted data >>> {}", String::from_utf8_lossy(&decrypted_data));
+        println!(
+            "Ipfs file {:?} contents:\n{}",
+            hash,
+            String::from_utf8_lossy(&decrypted_data)
+        );
 
         Ok(())
     }
 }
 
-
 // turn these into iterators...
 fn bytes_to_string_literal(bytes: &[u8]) -> String {
     let mut result = String::from("[");
-    
+
     for (index, byte) in bytes.iter().enumerate() {
         result.push_str(&byte.to_string());
-        
+
         if index < bytes.len() - 1 {
             result.push(',');
         }
     }
     result.push(']');
-    
-    return result
+
+    result
 }
 
-fn string_literal_to_bytes(string: &str) -> Vec<u8> {
-    serde_json::from_str::<Vec<u8>>(string).unwrap()
+fn string_literal_to_bytes(string: &str) -> Result<Vec<u8>, serde_json::Error> {
+    serde_json::from_str::<Vec<u8>>(string)
 }

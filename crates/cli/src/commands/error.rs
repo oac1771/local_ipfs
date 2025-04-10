@@ -19,5 +19,8 @@ pub enum CommandError {
     },
 
     #[error("Error: {0}")]
+    Aead(String),
+
+    #[error("Error: {0}")]
     Error(String),
 }
