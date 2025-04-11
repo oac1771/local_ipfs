@@ -3,7 +3,6 @@ server
     - endpoint for grafana to show what hashes are being pinned 
     - look into gossiping so changes can propogate over the network 
 cli
-    - change config to be type state so you wouldnt need to get if encryption key is empty, can be compile time check?
     - start/stop docker compose 
         - would need server image to be in remote public registry
 

@@ -9,7 +9,7 @@ const CONFIG_FILE_NAME: &str = ".local_ipfs_config.json";
 
 #[derive(Deserialize, Serialize, Debug, Default)]
 pub struct Config {
-    encryption_key: Vec<u8>,
+    encryption_key: Option<Vec<u8>>,
 }
 
 impl Config {
@@ -43,15 +43,13 @@ impl Config {
         Ok(())
     }
 
-    pub fn encryption_key(&self) -> Option<&Vec<u8>> {
-        if self.encryption_key.is_empty() {
-            None
-        } else {
-            Some(&self.encryption_key)
-        }
+    pub fn encryption_key(&self) -> Result<&Vec<u8>, String> {
+        self.encryption_key
+            .as_ref()
+            .ok_or_else(|| "Encryption key not set".into())
     }
 
     pub fn update_encryption_key(&mut self, encryption_key: Vec<u8>) {
-        self.encryption_key = encryption_key
+        self.encryption_key = Some(encryption_key)
     }
 }

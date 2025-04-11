@@ -47,13 +47,9 @@ impl FileCommand {
     where
         F: AsRef<Path> + Debug + Copy,
     {
-        let encryption_key = if let Some(encryption_key) = config.encryption_key() {
-            encryption_key
-        } else {
-            return Err(CommandError::Error(
-                "Encryption key not found in config, please create encryption key".into(),
-            ));
-        };
+        let encryption_key = config
+            .encryption_key()
+            .map_err(|err| CommandError::Error(err))?;
 
         let mut file = File::open(file_path).await?;
         let mut contents = vec![];
@@ -73,13 +69,9 @@ impl FileCommand {
     where
         H: Into<String> + Debug + Copy,
     {
-        let encryption_key = if let Some(encryption_key) = config.encryption_key() {
-            encryption_key
-        } else {
-            return Err(CommandError::Error(
-                "Encryption key not found in config, please create encryption key".into(),
-            ));
-        };
+        let encryption_key = config
+            .encryption_key()
+            .map_err(|err| CommandError::Error(err))?;
 
         let cat_response = client.cat(hash.into()).await?;
         let data = string_literal_to_bytes(&cat_response)?;
