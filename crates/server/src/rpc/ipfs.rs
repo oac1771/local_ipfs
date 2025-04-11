@@ -19,7 +19,7 @@ use reqwest::{
     Body, Client,
 };
 use serde_json;
-use tracing::error;
+use tracing::{error, info};
 
 use super::Call;
 
@@ -124,6 +124,8 @@ impl IpfsServer for IpfsApi {
             .await
             .map_err(|err| RpcServeError::Message(err.to_string()))?;
 
+        info!("added {} to ipfs", response.hash);
+
         Ok(response)
     }
 
@@ -143,6 +145,9 @@ impl IpfsServer for IpfsApi {
                     .text()
                     .await
                     .map_err(|err| RpcServeError::Message(err.to_string()))?;
+
+                info!("read {} from ipfs", hash);
+
                 return Ok(body);
             }
         }

@@ -1,5 +1,4 @@
 server
-    - add info logs to adding and reading ipfs file
     - endpoint for grafana to show what hashes are being pinned 
     - look into gossiping so changes can propogate over the network 
 cli
