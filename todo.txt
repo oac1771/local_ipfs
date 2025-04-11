@@ -10,9 +10,6 @@ cli
 
 docker compose to run:
 - ipfs container
-- rpc to interact with grafana/prometheus
+- rpc to interact with grafana/prometheus/ipfs node
 - grafana
 - prometheus
-
-
-global flags: https://stackoverflow.com/questions/74987368/how-to-use-global-option-when-subcommands-are-defined-when-using-clap-in-rust

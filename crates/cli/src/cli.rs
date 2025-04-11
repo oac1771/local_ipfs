@@ -11,7 +11,7 @@ pub struct Cli {
     #[command(subcommand)]
     command: Command,
 
-    #[arg(long, default_value = "ws://localhost:8008")]
+    #[arg(long, default_value = "ws://localhost:8008", global = true)]
     server_url: String,
 }
 
