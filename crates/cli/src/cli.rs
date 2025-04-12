@@ -46,12 +46,9 @@ pub async fn run() {
         }
     };
 
-    match result {
-        Ok(_) => {
-            if let Err(err) = config.update_config_file().await {
-                eprintln!("Error updating config file: {}", err);
-            }
-        }
-        Err(err) => eprintln!("{}", err),
+    if let Err(err) = result {
+        eprintln!("{}", err)
+    } else if let Err(err) = config.update_config_file().await {
+        eprintln!("Error updating config file: {}", err);
     }
 }

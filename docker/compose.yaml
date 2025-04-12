@@ -67,7 +67,6 @@ services:
       - ./configs/grafana-prometheus-datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yml
       - 'grafana_storage:/var/lib/grafana'
 
-# use volume for ipfs instead of directory...
 volumes:
   grafana_storage: {}
   prometheus_data: {}

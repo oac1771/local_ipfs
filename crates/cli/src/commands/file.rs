@@ -47,9 +47,7 @@ impl FileCommand {
     where
         F: AsRef<Path> + Debug + Copy,
     {
-        let encryption_key = config
-            .encryption_key()
-            .map_err(|err| CommandError::Error(err))?;
+        let encryption_key = config.encryption_key().map_err(CommandError::Error)?;
 
         let mut file = File::open(file_path).await?;
         let mut contents = vec![];
@@ -69,9 +67,7 @@ impl FileCommand {
     where
         H: Into<String> + Debug + Copy,
     {
-        let encryption_key = config
-            .encryption_key()
-            .map_err(|err| CommandError::Error(err))?;
+        let encryption_key = config.encryption_key().map_err(CommandError::Error)?;
 
         let cat_response = client.cat(hash.into()).await?;
         let data = string_literal_to_bytes(&cat_response)?;
@@ -88,17 +84,17 @@ impl FileCommand {
     }
 }
 
-// turn these into iterators...
 fn bytes_to_string_literal(bytes: &[u8]) -> String {
     let mut result = String::from("[");
 
-    for (index, byte) in bytes.iter().enumerate() {
+    bytes.iter().enumerate().for_each(|(index, byte)| {
         result.push_str(&byte.to_string());
 
         if index < bytes.len() - 1 {
             result.push(',');
         }
-    }
+    });
+
     result.push(']');
 
     result
@@ -106,4 +102,19 @@ fn bytes_to_string_literal(bytes: &[u8]) -> String {
 
 fn string_literal_to_bytes(string: &str) -> Result<Vec<u8>, serde_json::Error> {
     serde_json::from_str::<Vec<u8>>(string)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn bytes_to_string_and_reverse() {
+        let expected = b"hello_world";
+
+        let string = bytes_to_string_literal(expected);
+        let result = string_literal_to_bytes(&string).unwrap();
+
+        assert_eq!(expected.to_vec(), result);
+    }
 }
