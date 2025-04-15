@@ -1,4 +1,4 @@
-use super::Server;
+use super::{state::ServerState, Server};
 use crate::rpc::{ipfs::IpfsApi, util::UtilApi, Module};
 use std::{env::var, ops::ControlFlow};
 
@@ -57,12 +57,15 @@ impl ServerBuilder<String, String, Vec<Module>> {
         reload_handle: Handle<EnvFilter, Registry>,
     ) -> Result<Server, RegisterMethodError> {
         let mut rpc_module = RpcModule::new(());
+        let state = ServerState::new();
+        let (state_handle, state_client) = state.start();
+
         let result = self.modules.into_iter().try_for_each(|m| {
             let methods: Methods = match m {
                 Module::Ipfs => {
                     let ipfs_base_url =
                         var("IPFS_BASE_URL").unwrap_or("http://localhost:5001".into());
-                    IpfsApi::new(ipfs_base_url).into()
+                    IpfsApi::new(ipfs_base_url, state_client.clone()).into()
                 }
                 Module::Util => UtilApi::new(reload_handle.clone()).into(),
             };
@@ -73,7 +76,9 @@ impl ServerBuilder<String, String, Vec<Module>> {
         });
 
         match result {
-            ControlFlow::Continue(()) => Ok(Server::new(rpc_module, self.port, self.ip)),
+            ControlFlow::Continue(()) => {
+                Ok(Server::new(rpc_module, self.port, self.ip, state_handle))
+            }
             ControlFlow::Break(err) => Err(err),
         }
     }

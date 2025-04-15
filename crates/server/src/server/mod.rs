@@ -1,21 +1,29 @@
 pub mod builder;
+pub mod state;
 
 use jsonrpsee::{server::ServerBuilder as JosnRpseeServerBuilder, RpcModule};
-use tokio::{select, signal::ctrl_c};
+use tokio::{select, signal::ctrl_c, task::JoinHandle};
 use tracing::{error, info};
 
 pub struct Server {
     rpc_module: RpcModule<()>,
     port: String,
     ip: String,
+    state_handle: JoinHandle<()>,
 }
 
 impl Server {
-    pub fn new(rpc_module: RpcModule<()>, port: String, ip: String) -> Self {
+    pub fn new(
+        rpc_module: RpcModule<()>,
+        port: String,
+        ip: String,
+        state_handle: JoinHandle<()>,
+    ) -> Self {
         Self {
             rpc_module,
             port,
             ip,
+            state_handle,
         }
     }
 
@@ -30,6 +38,11 @@ impl Server {
             result = tokio::spawn(server_handle.clone().stopped()) => {
                 if let Err(err) = result {
                     error!("Server stopped unexpectedly: {:?}", err);
+                };
+            },
+            result = self.state_handle => {
+                if let Err(err) = result {
+                    error!("State stopped unexpectedly: {:?}", err);
                 };
             },
             _ = ctrl_c() => {}

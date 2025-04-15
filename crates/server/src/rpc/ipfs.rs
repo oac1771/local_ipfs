@@ -7,6 +7,7 @@ use crate::{
         },
     },
     rpc::error::RpcServeError,
+    server::state::StateClient,
 };
 use bytes::Bytes;
 use futures::FutureExt;
@@ -19,13 +20,14 @@ use reqwest::{
     Body, Client,
 };
 use serde_json;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use super::Call;
 
 pub struct IpfsApi {
     ipfs_base_url: String,
     client: Client,
+    state_client: StateClient,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -38,13 +40,21 @@ enum IpfsApiError {
 }
 
 impl IpfsApi {
-    pub fn new(ipfs_base_url: impl Into<String>) -> Self {
+    pub fn new(ipfs_base_url: impl Into<String>, state_client: StateClient) -> Self {
         let client = Client::new();
 
         Self {
             ipfs_base_url: ipfs_base_url.into(),
             client,
+            state_client,
         }
+    }
+
+    async fn update_state(&self, hash: &str) {
+        match self.state_client.add_ipfs_hash(hash.to_string()).await {
+            Ok(_) => debug!("Saved ipfs hash {} to state", hash),
+            Err(err) => error!("Error saving ipfs hash to state: {:?}", err),
+        };
     }
 }
 
@@ -125,6 +135,8 @@ impl IpfsServer for IpfsApi {
             .map_err(|err| RpcServeError::Message(err.to_string()))?;
 
         info!("added {} to ipfs", response.hash);
+
+        self.update_state(&response.hash).await;
 
         Ok(response)
     }
