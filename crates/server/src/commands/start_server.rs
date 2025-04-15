@@ -1,7 +1,6 @@
 use crate::{rpc::Module, server::builder::ServerBuilder};
 use clap::Parser;
-use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{fmt, prelude::*, reload, EnvFilter};
+use tracing_subscriber::{reload::Handle, EnvFilter, Registry};
 
 use super::error::CommandError;
 
@@ -15,16 +14,10 @@ pub struct StartServerCmd {
 }
 
 impl StartServerCmd {
-    pub async fn handle(self) -> Result<(), CommandError> {
-        let filter = EnvFilter::builder()
-            .with_default_directive(LevelFilter::INFO.into())
-            .from_env()?;
-        let (layer, reload_handle) = reload::Layer::new(filter);
-        tracing_subscriber::registry()
-            .with(layer)
-            .with(fmt::Layer::default())
-            .init();
-
+    pub async fn handle(
+        self,
+        reload_handle: Handle<EnvFilter, Registry>,
+    ) -> Result<(), CommandError> {
         let modules = vec![Module::Util, Module::Ipfs];
 
         let server = ServerBuilder::new()
