@@ -1,5 +1,6 @@
 mod error;
 pub mod ipfs;
+pub mod metrics;
 pub mod util;
 
 use futures::future::BoxFuture;
@@ -9,6 +10,7 @@ use tracing::error;
 pub enum Module {
     Util,
     Ipfs,
+    Metrics,
 }
 
 trait Call {

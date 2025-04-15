@@ -30,11 +30,13 @@ pub struct StateRequest {
 #[derive(Debug)]
 enum StateRequestPayload {
     AddIpfsHash { hash: String },
+    GetIpfsHashes,
 }
 
 #[derive(Debug)]
 enum StateResponse {
     AddIpfsHash,
+    GetIpfsHashes { hashes: Vec<String> },
 }
 
 impl StateClient {
@@ -46,6 +48,14 @@ impl StateClient {
         let payload = StateRequestPayload::AddIpfsHash { hash };
         self.send_request(payload).await?;
         Ok(())
+    }
+
+    pub async fn get_ipfs_hashes(&self) -> Result<Vec<String>, StateClientError<StateRequest>> {
+        let payload = StateRequestPayload::GetIpfsHashes;
+        let StateResponse::GetIpfsHashes { hashes } = self.send_request(payload).await? else {
+            return Err(StateClientError::UnexpectedResponse);
+        };
+        Ok(hashes)
     }
 
     async fn send_request(
@@ -105,6 +115,10 @@ impl ServerState {
                     self.ipfs_hashes.insert(hash);
                     Ok(StateResponse::AddIpfsHash)
                 }
+                StateRequestPayload::GetIpfsHashes => {
+                    let hashes = self.ipfs_hashes.iter().cloned().collect::<Vec<String>>();
+                    Ok(StateResponse::GetIpfsHashes { hashes })
+                }
             };
 
             Self::send_response(resp, req.sender).await;
@@ -137,4 +151,7 @@ pub enum StateClientError<T> {
 
     #[error("")]
     Timeout,
+
+    #[error("")]
+    UnexpectedResponse,
 }

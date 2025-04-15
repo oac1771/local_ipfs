@@ -18,7 +18,7 @@ impl StartServerCmd {
         self,
         reload_handle: Handle<EnvFilter, Registry>,
     ) -> Result<(), CommandError> {
-        let modules = vec![Module::Util, Module::Ipfs];
+        let modules = vec![Module::Util, Module::Ipfs, Module::Metrics];
 
         let server = ServerBuilder::new()
             .with_ip(self.ip)

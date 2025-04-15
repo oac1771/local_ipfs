@@ -1,5 +1,5 @@
 use super::{state::ServerState, Server};
-use crate::rpc::{ipfs::IpfsApi, util::UtilApi, Module};
+use crate::rpc::{ipfs::IpfsApi, metrics::MetricsApi, util::UtilApi, Module};
 use std::{env::var, ops::ControlFlow};
 
 use jsonrpsee::{core::RegisterMethodError, Methods, RpcModule};
@@ -68,6 +68,7 @@ impl ServerBuilder<String, String, Vec<Module>> {
                     IpfsApi::new(ipfs_base_url, state_client.clone()).into()
                 }
                 Module::Util => UtilApi::new(reload_handle.clone()).into(),
+                Module::Metrics => MetricsApi::new(state_client.clone()).into(),
             };
             match rpc_module.merge(methods) {
                 Ok(_) => ControlFlow::Continue(()),
