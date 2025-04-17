@@ -9,8 +9,11 @@ pub struct StartServerCmd {
     #[arg(long, default_value = "8008")]
     port: String,
 
-    #[arg(default_value = "0.0.0.0")]
+    #[arg(long, default_value = "0.0.0.0")]
     ip: String,
+
+    #[arg(long, default_value = "false")]
+    enable_metrics: bool,
 }
 
 impl StartServerCmd {
@@ -18,7 +21,11 @@ impl StartServerCmd {
         self,
         reload_handle: Handle<EnvFilter, Registry>,
     ) -> Result<(), CommandError> {
-        let modules = vec![Module::Util, Module::Ipfs, Module::Metrics];
+        let mut modules = vec![Module::Util, Module::Ipfs];
+
+        if self.enable_metrics {
+            modules.push(Module::Metrics)
+        }
 
         let server = ServerBuilder::new()
             .with_ip(self.ip)

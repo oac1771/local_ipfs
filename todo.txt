@@ -1,7 +1,11 @@
 server
-    - update statecommand to also take oneshot to make sure it was received correctly, similar to bruja...
+    - add metrics endpoint for prometheus using crate, might have to feature gate it:
+        - https://crates.io/crates/prometheus
+            - ask chatgpt to show you example of configuring grpc and prometheus server
+
+    - or push to pushgateway instead
+        - probably easier 
     - endpoint for grafana to show what hashes are being pinned
-        - probably need to add a state service that is running in backgroound which ipfs and metrics can read and write from using channels 
     - look into gossiping so changes can propogate over the network 
 cli
     - start/stop docker compose 
