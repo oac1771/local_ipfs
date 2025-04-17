@@ -68,7 +68,11 @@ impl ServerBuilder<String, String, Vec<Module>> {
                     IpfsApi::new(ipfs_base_url, state_client.clone()).into()
                 }
                 Module::Util => UtilApi::new(reload_handle.clone()).into(),
-                Module::Metrics => MetricsApi::new(state_client.clone()).into(),
+                Module::Metrics => {
+                    let push_gateway_url =
+                        var("PUSH_GATEWAY_URL").unwrap_or("http://localhost:5001".into());
+                    MetricsApi::new(push_gateway_url, state_client.clone()).into()
+                }
             };
             match rpc_module.merge(methods) {
                 Ok(_) => ControlFlow::Continue(()),

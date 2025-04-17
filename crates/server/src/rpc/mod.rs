@@ -15,7 +15,6 @@ pub enum Module {
 
 trait Call {
     async fn call<'a, D, E>(
-        &self,
         request: impl FnOnce() -> BoxFuture<'a, Result<reqwest::Response, reqwest::Error>>,
     ) -> Result<D, E>
     where

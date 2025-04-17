@@ -5,9 +5,11 @@ server
 
     - or push to pushgateway instead
         - probably easier 
-    - endpoint for grafana to show what hashes are being pinned
+    - endpoint to turn off or turn on metrics if they are enabled
     - look into gossiping so changes can propogate over the network 
 cli
+    - save added files to config (file_path to ipfs hash)
+    - get command can ask for file_path or ipfs hash
     - start/stop docker compose 
         - would need server image to be in remote public registry
 

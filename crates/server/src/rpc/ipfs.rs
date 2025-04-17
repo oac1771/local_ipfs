@@ -65,8 +65,7 @@ impl IpfsServer for IpfsApi {
     async fn id(&self) -> RpcResult<IpfsIdResponse> {
         let url = format!("{}{}", self.ipfs_base_url, "/api/v0/id");
         let request = || async move { self.client.post(url).send().await }.boxed();
-        let response = self
-            .call::<IpfsIdResponse, IpfsApiError>(request)
+        let response = <IpfsApi as Call>::call::<IpfsIdResponse, IpfsApiError>(request)
             .await
             .map_err(|err| RpcServeError::Message(err.to_string()))?;
 
@@ -78,8 +77,7 @@ impl IpfsServer for IpfsApi {
             PinAction::ls => {
                 let url = format!("{}{}", self.ipfs_base_url, "/api/v0/pin/ls");
                 let request = || async move { self.client.post(url).send().await }.boxed();
-                let response = self
-                    .call::<IpfsPinLsResponse, IpfsApiError>(request)
+                let response = <IpfsApi as Call>::call::<IpfsPinLsResponse, IpfsApiError>(request)
                     .await
                     .map_err(|err| RpcServeError::Message(err.to_string()))?;
                 response.into()
@@ -89,8 +87,7 @@ impl IpfsServer for IpfsApi {
                     hash.ok_or_else(|| RpcServeError::Message("Hash not supplied".to_string()))?;
                 let url = format!("{}/api/v0/pin/add?arg={}", self.ipfs_base_url, hash);
                 let request = || async move { self.client.post(url).send().await }.boxed();
-                let response = self
-                    .call::<IpfsPinAddResponse, IpfsApiError>(request)
+                let response = <IpfsApi as Call>::call::<IpfsPinAddResponse, IpfsApiError>(request)
                     .await
                     .map_err(|err| RpcServeError::Message(err.to_string()))?;
                 response.into()
@@ -100,8 +97,7 @@ impl IpfsServer for IpfsApi {
                     hash.ok_or_else(|| RpcServeError::Message("Hash not supplied".to_string()))?;
                 let url = format!("{}/api/v0/pin/rm?arg={}", self.ipfs_base_url, hash);
                 let request = || async move { self.client.post(url).send().await }.boxed();
-                let response = self
-                    .call::<IpfsPinRmResponse, IpfsApiError>(request)
+                let response = <IpfsApi as Call>::call::<IpfsPinRmResponse, IpfsApiError>(request)
                     .await
                     .map_err(|err| RpcServeError::Message(err.to_string()))?;
                 response.into()
@@ -129,8 +125,7 @@ impl IpfsServer for IpfsApi {
             }
             .boxed()
         };
-        let response = self
-            .call::<IpfsAddResponse, IpfsApiError>(request)
+        let response = <IpfsApi as Call>::call::<IpfsAddResponse, IpfsApiError>(request)
             .await
             .map_err(|err| RpcServeError::Message(err.to_string()))?;
 
