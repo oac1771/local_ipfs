@@ -34,43 +34,39 @@ async fn start_metric_process(state_client: StateClient, push_gateway_base_url: 
     loop {
         sleep(Duration::from_secs(5)).await;
 
-        let metrics_payload = match handle(&state_client).await {
-            Ok(metrics_payload) => metrics_payload,
+        let metrics_data = match handle(&state_client).await {
+            Ok(metrics_data) => metrics_data,
             Err(err) => {
                 debug!("Error getting metrics data: {}", err);
                 continue;
             }
         };
 
-        send_data(metrics_payload, &push_gateway_base_url).await;
-    }
-}
+        let payload = match metrics_data.into_payload() {
+            Ok(payload) => payload,
+            Err(err) => {
+                debug!("Error building metrics payload: {}", err);
+                continue;
+            }
+        };
 
-async fn handle(state_client: &StateClient) -> Result<MetricsPayload, String> {
-    let mut metrics_payload = MetricsPayload::default();
-    get_ipfs_hashes(state_client, &mut metrics_payload).await?;
-
-    Ok(metrics_payload)
-}
-
-async fn get_ipfs_hashes(
-    state_client: &StateClient,
-    metrics_payload: &mut MetricsPayload,
-) -> Result<(), String> {
-    match state_client.get_ipfs_hashes().await {
-        Ok(data) => {
-            metrics_payload.ipfs_hashes = data;
-            Ok(())
+        if let Err(err) = send_data(payload, &push_gateway_base_url).await {
+            debug!("Error sending metrics: {}", err);
+            continue;
         }
-        Err(err) => Err(err.to_string()),
     }
 }
 
-async fn send_data(metrics_payload: MetricsPayload, push_gateway_base_url: &str) {
-    let url = format!("{}{}", push_gateway_base_url, "/metrics/job/ipfs_hashes");
+async fn handle(state_client: &StateClient) -> Result<MetricsData, String> {
+    let mut metrics_data = MetricsData::default();
+    get_ipfs_hashes(state_client, &mut metrics_data).await?;
 
+    Ok(metrics_data)
+}
+
+async fn send_data(data: Vec<u8>, push_gateway_base_url: &str) -> Result<(), MetricsError> {
+    let url = format!("{}{}", push_gateway_base_url, "/metrics/job/ipfs_hashes");
     let client = Client::new();
-    let data = metrics_payload.into_payload();
 
     let request = || {
         async move {
@@ -83,9 +79,23 @@ async fn send_data(metrics_payload: MetricsPayload, push_gateway_base_url: &str)
         }
         .boxed()
     };
-    <MetricsApi as Call>::call::<(), MetricsError>(request)
-        .await
-        .unwrap();
+
+    <MetricsApi as Call>::call::<(), MetricsError>(request).await?;
+
+    Ok(())
+}
+
+async fn get_ipfs_hashes(
+    state_client: &StateClient,
+    metrics_data: &mut MetricsData,
+) -> Result<(), String> {
+    match state_client.get_ipfs_hashes().await {
+        Ok(data) => {
+            metrics_data.ipfs_hashes = data;
+            Ok(())
+        }
+        Err(err) => Err(err.to_string()),
+    }
 }
 
 #[async_trait]
@@ -107,12 +117,12 @@ impl From<MetricsApi> for Methods {
 }
 
 #[derive(Default, Serialize)]
-struct MetricsPayload {
+struct MetricsData {
     ipfs_hashes: Vec<String>,
 }
 
-impl MetricsPayload {
-    fn into_payload(self) -> String {
+impl MetricsData {
+    fn into_payload(self) -> Result<Vec<u8>, MetricsError> {
         let registry = Registry::new();
         let gauge_vec = IntGaugeVec::new(
             Opts::new(
@@ -120,20 +130,19 @@ impl MetricsPayload {
                 "Ipfs hashes that are managed by local_ipfs cluster",
             ),
             &["hash"],
-        )
-        .unwrap();
+        )?;
 
         self.ipfs_hashes
             .into_iter()
             .for_each(|hash| gauge_vec.with_label_values(&[&hash]).set(0));
 
-        registry.register(Box::new(gauge_vec.clone())).unwrap();
+        registry.register(Box::new(gauge_vec.clone()))?;
 
         let metric_families = registry.gather();
         let encoder = TextEncoder::new();
         let mut buffer = Vec::new();
-        encoder.encode(&metric_families, &mut buffer).unwrap();
-        String::from_utf8(buffer).unwrap()
+        encoder.encode(&metric_families, &mut buffer)?;
+        Ok(buffer)
     }
 }
 
@@ -149,5 +158,11 @@ enum MetricsError {
     Reqwest {
         #[from]
         source: reqwest::Error,
+    },
+
+    #[error("")]
+    Prometheus {
+        #[from]
+        source: prometheus::Error,
     },
 }
