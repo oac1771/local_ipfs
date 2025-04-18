@@ -6,26 +6,31 @@ use jsonrpsee::{
 use prometheus::{Encoder, IntGaugeVec, Opts, Registry, TextEncoder};
 use reqwest::Client;
 use serde::Serialize;
-use tokio::time::{sleep, Duration};
+use tokio::{
+    task::JoinHandle,
+    time::{sleep, Duration},
+};
 use tracing::{debug, info};
 
 use crate::{api::metrics::MetricsServer, server::state::StateClient};
 
-use super::{error::RpcServeError, Call};
+use super::Call;
 
 pub struct MetricsApi {
-    state_client: StateClient,
+    handle: JoinHandle<()>,
 }
 
 impl Call for MetricsApi {}
 
 impl MetricsApi {
     pub fn new(push_gateway_base_url: String, state_client: StateClient) -> Self {
-        let _handle = tokio::spawn(start_metric_process(
-            state_client.clone(),
+        let handle = tokio::spawn(start_metric_process(
+            state_client,
             push_gateway_base_url,
         ));
-        Self { state_client }
+        Self {
+            handle,
+        }
     }
 }
 
@@ -100,13 +105,13 @@ async fn get_ipfs_hashes(
 
 #[async_trait]
 impl MetricsServer for MetricsApi {
-    async fn ipfs_hashes(&self) -> RpcResult<Vec<String>> {
-        let hashes = self
-            .state_client
-            .get_ipfs_hashes()
-            .await
-            .map_err(|err| RpcServeError::Message(err.to_string()))?;
-        Ok(hashes)
+    async fn check_status(&self) -> RpcResult<String> {
+        let response = if self.handle.is_finished() {
+            String::from("Metrics processes has stopped")
+        } else {
+            String::from("Metrics processes is still running")
+        };
+        Ok(response)
     }
 }
 

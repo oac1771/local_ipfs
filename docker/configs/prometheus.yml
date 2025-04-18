@@ -12,6 +12,7 @@ scrape_configs:
     static_configs:
       - targets: ['node-exporter:9100']
 
-  - job_name: 'local-ipfs'
+  - job_name: 'push-gateway'
+    honor_labels: true
     static_configs:
-      - targets: ['rpc:8008/metrics']
+      - targets: ['push-gateway:9091']

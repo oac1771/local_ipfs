@@ -1,11 +1,7 @@
+docker
+    - prometheus scrape from push gateway
+    - update dashboard
 server
-    - add metrics endpoint for prometheus using crate, might have to feature gate it:
-        - https://crates.io/crates/prometheus
-            - ask chatgpt to show you example of configuring grpc and prometheus server
-
-    - or push to pushgateway instead
-        - probably easier 
-    - endpoint to turn off or turn on metrics if they are enabled
     - look into gossiping so changes can propogate over the network 
 cli
     - save added files to config (file_path to ipfs hash)

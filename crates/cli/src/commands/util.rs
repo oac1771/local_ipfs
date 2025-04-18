@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use jsonrpsee::async_client::Client;
-use server::api::{ipfs::IpfsClient, util::UtilClient};
+use server::api::{ipfs::IpfsClient, metrics::MetricsClient, util::UtilClient};
 use std::{fmt::Display, marker::Copy};
 
 use super::error::CommandError;
@@ -37,8 +37,11 @@ impl UtilCommand {
     async fn ping(&self, client: &Client) -> Result<(), CommandError> {
         let pong = client.ping().await?;
         let ipfs_id = client.id().await?;
+        let metrics_response = client.check_status().await?;
+
         println!("Server Response: {:?}", pong);
         println!("Ipfs Response: {:?}", ipfs_id);
+        println!("Metrics process Response: {}", metrics_response);
         Ok(())
     }
 
