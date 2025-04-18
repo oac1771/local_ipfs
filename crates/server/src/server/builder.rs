@@ -70,7 +70,7 @@ impl ServerBuilder<String, String, Vec<Module>> {
                 Module::Util => UtilApi::new(reload_handle.clone()).into(),
                 Module::Metrics => {
                     let push_gateway_url =
-                        var("PUSH_GATEWAY_URL").unwrap_or("http://localhost:5001".into());
+                        var("PUSH_GATEWAY_BASE_URL").unwrap_or("http://localhost:9091".into());
                     MetricsApi::new(push_gateway_url, state_client.clone()).into()
                 }
             };

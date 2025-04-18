@@ -20,7 +20,7 @@ services:
     image: server:latest
     environment:
       IPFS_BASE_URL: http://ipfs:5001
-      PUSH_GATEWAY_URL: http://ipfs:5001
+      PUSH_GATEWAY_BASE_URL: http://push-gateway:9091
     ports:
       - 8008:8008
 
@@ -55,6 +55,13 @@ services:
       - '--web.enable-lifecycle'
     ports:
      - '9090:9090'
+
+  push-gateway:
+    image: prom/pushgateway:v1.11.1 
+    container_name: push-gateway
+    restart: unless-stopped
+    ports:
+     - '9091:9091'
 
   grafana:
     image: grafana/grafana:11.6.0

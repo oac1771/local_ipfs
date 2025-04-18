@@ -16,7 +16,7 @@ pub enum Module {
 trait Call {
     async fn call<'a, D, E>(
         request: impl FnOnce() -> BoxFuture<'a, Result<reqwest::Response, reqwest::Error>>,
-    ) -> Result<D, E>
+    ) -> Result<Option<D>, E>
     where
         D: DeserializeOwned,
         E: From<reqwest::Error> + From<serde_json::Error>,
@@ -29,9 +29,12 @@ trait Call {
             Ok(response) => {
                 let resp = response.error_for_status()?;
                 let body = resp.text().await?;
-                let r = serde_json::from_str::<D>(&body)?;
 
-                Ok(r)
+                if body.trim().is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(serde_json::from_str::<D>(&body)?))
+                }
             }
         }
     }

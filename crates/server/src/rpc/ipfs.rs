@@ -67,7 +67,8 @@ impl IpfsServer for IpfsApi {
         let request = || async move { self.client.post(url).send().await }.boxed();
         let response = <IpfsApi as Call>::call::<IpfsIdResponse, IpfsApiError>(request)
             .await
-            .map_err(|err| RpcServeError::Message(err.to_string()))?;
+            .map_err(|err| RpcServeError::Message(err.to_string()))?
+            .ok_or_else(|| RpcServeError::Message("Received empty response from ipfs".into()))?;
 
         Ok(response)
     }
@@ -79,7 +80,10 @@ impl IpfsServer for IpfsApi {
                 let request = || async move { self.client.post(url).send().await }.boxed();
                 let response = <IpfsApi as Call>::call::<IpfsPinLsResponse, IpfsApiError>(request)
                     .await
-                    .map_err(|err| RpcServeError::Message(err.to_string()))?;
+                    .map_err(|err| RpcServeError::Message(err.to_string()))?
+                    .ok_or_else(|| {
+                        RpcServeError::Message("Received empty response from ipfs".into())
+                    })?;
                 response.into()
             }
             PinAction::add => {
@@ -89,7 +93,10 @@ impl IpfsServer for IpfsApi {
                 let request = || async move { self.client.post(url).send().await }.boxed();
                 let response = <IpfsApi as Call>::call::<IpfsPinAddResponse, IpfsApiError>(request)
                     .await
-                    .map_err(|err| RpcServeError::Message(err.to_string()))?;
+                    .map_err(|err| RpcServeError::Message(err.to_string()))?
+                    .ok_or_else(|| {
+                        RpcServeError::Message("Received empty response from ipfs".into())
+                    })?;
                 response.into()
             }
             PinAction::rm => {
@@ -99,7 +106,10 @@ impl IpfsServer for IpfsApi {
                 let request = || async move { self.client.post(url).send().await }.boxed();
                 let response = <IpfsApi as Call>::call::<IpfsPinRmResponse, IpfsApiError>(request)
                     .await
-                    .map_err(|err| RpcServeError::Message(err.to_string()))?;
+                    .map_err(|err| RpcServeError::Message(err.to_string()))?
+                    .ok_or_else(|| {
+                        RpcServeError::Message("Received empty response from ipfs".into())
+                    })?;
                 response.into()
             }
         };
@@ -127,7 +137,8 @@ impl IpfsServer for IpfsApi {
         };
         let response = <IpfsApi as Call>::call::<IpfsAddResponse, IpfsApiError>(request)
             .await
-            .map_err(|err| RpcServeError::Message(err.to_string()))?;
+            .map_err(|err| RpcServeError::Message(err.to_string()))?
+            .ok_or_else(|| RpcServeError::Message("Received empty response from ipfs".into()))?;
 
         info!("added {} to ipfs", response.hash);
 
