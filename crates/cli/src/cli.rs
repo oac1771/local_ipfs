@@ -38,7 +38,7 @@ pub async fn run() {
     } else {
         match WsClientBuilder::default().build(&args.server_url).await {
             Ok(client) => match args.command {
-                Command::File(cmd) => cmd.handle(client, &config).await,
+                Command::File(cmd) => cmd.handle(client, &mut config).await,
                 Command::Util(cmd) => cmd.handle(client).await,
                 Command::CreateKey(_) => Ok(()),
             },

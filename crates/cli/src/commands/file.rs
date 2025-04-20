@@ -32,7 +32,7 @@ enum Command {
 }
 
 impl FileCommand {
-    pub async fn handle(self, client: Client, config: &Config) -> Result<(), CommandError> {
+    pub async fn handle(self, client: Client, config: &mut Config) -> Result<(), CommandError> {
         match self.command {
             Command::Add { ref file_path } => Self::add(&client, file_path, config).await?,
             Command::Get { hash, file_path } => Self::get(&client, config, hash, file_path).await?,
@@ -41,9 +41,9 @@ impl FileCommand {
         Ok(())
     }
 
-    async fn add<F>(client: &Client, file_path: F, config: &Config) -> Result<(), CommandError>
+    async fn add<F>(client: &Client, file_path: F, config: &mut Config) -> Result<(), CommandError>
     where
-        F: AsRef<Path> + Debug + std::marker::Copy,
+        F: AsRef<Path> + Into<String> + Debug + std::marker::Copy,
     {
         let encryption_key = config.encryption_key().map_err(CommandError::Error)?;
 
@@ -56,6 +56,7 @@ impl FileCommand {
         let data = bytes_to_string_literal(&data);
 
         let add_response = client.add(data.as_bytes().to_vec()).await?;
+        config.update_hash(file_path, add_response.hash.clone());
         println!("File {:?} added to ipfs: {}", file_path, add_response.hash);
 
         Ok(())
@@ -70,7 +71,7 @@ impl FileCommand {
     where
         H: Into<String> + Debug + std::clone::Clone,
     {
-        let hash = match (hash, file_path) {
+        let hash: String = match (hash, file_path) {
             (None, None) => {
                 return Err(CommandError::Error(
                     "Must pass either --hash or --file-path".to_string(),
@@ -81,15 +82,12 @@ impl FileCommand {
                     "Cannot pass both --hash and --file-path".to_string(),
                 ));
             }
-            (None, Some(file_path)) => {
-                // get hash from config using file path as key...
-                file_path
-            }
-            (Some(hash), None) => hash,
+            (None, Some(file_path)) => config.hash(file_path)?.into(),
+            (Some(hash), None) => hash.into(),
         };
         let encryption_key = config.encryption_key().map_err(CommandError::Error)?;
 
-        let cat_response = client.cat(hash.clone().into()).await?;
+        let cat_response = client.cat(hash.clone()).await?;
         let data = string_literal_to_bytes(&cat_response)?;
         let decrypted_data = Encryption::decrypt(encryption_key, &data)
             .map_err(|err| CommandError::Aead(err.to_string()))?;

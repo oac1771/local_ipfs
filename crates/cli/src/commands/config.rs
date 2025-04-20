@@ -1,15 +1,18 @@
 use home::home_dir;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 use tokio::fs;
 
 use super::error::CommandError;
 
 const CONFIG_FILE_NAME: &str = ".local_ipfs_config.json";
+type FilePath = String;
+type Hash = String;
 
 #[derive(Deserialize, Serialize, Debug, Default)]
 pub struct Config {
     encryption_key: Option<Vec<u8>>,
+    hashes: HashMap<Hash, FilePath>,
 }
 
 impl Config {
@@ -49,7 +52,22 @@ impl Config {
             .ok_or_else(|| "Encryption key not set".into())
     }
 
+    pub fn hash<S: Into<String>>(&self, file_path: S) -> Result<&String, CommandError> {
+        let file_path: String = file_path.into();
+        let hash = self
+            .hashes
+            .iter()
+            .find(|(_, f)| **f == file_path)
+            .ok_or_else(|| CommandError::Error("Filepath not found in config".into()))?
+            .0;
+        Ok(hash)
+    }
+
     pub fn update_encryption_key(&mut self, encryption_key: Vec<u8>) {
         self.encryption_key = Some(encryption_key)
+    }
+
+    pub fn update_hash<S: Into<String>>(&mut self, file_path: S, hash: String) {
+        self.hashes.insert(hash, file_path.into());
     }
 }
