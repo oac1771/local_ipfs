@@ -1,6 +1,3 @@
-docker
-    - prometheus scrape from push gateway
-    - update dashboard
 server
     - look into gossiping so changes can propogate over the network 
 cli
@@ -9,9 +6,3 @@ cli
     - start/stop docker compose 
         - would need server image to be in remote public registry
 
-
-docker compose to run:
-- ipfs container
-- rpc to interact with grafana/prometheus/ipfs node
-- grafana
-- prometheus

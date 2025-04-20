@@ -24,13 +24,8 @@ impl Call for MetricsApi {}
 
 impl MetricsApi {
     pub fn new(push_gateway_base_url: String, state_client: StateClient) -> Self {
-        let handle = tokio::spawn(start_metric_process(
-            state_client,
-            push_gateway_base_url,
-        ));
-        Self {
-            handle,
-        }
+        let handle = tokio::spawn(start_metric_process(state_client, push_gateway_base_url));
+        Self { handle }
     }
 }
 

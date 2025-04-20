@@ -28,7 +28,7 @@ pub async fn run() {
     let mut config = match Config::parse().await {
         Ok(config) => config,
         Err(err) => {
-            println!("Error parsing config: {}", err);
+            eprintln!("Error parsing config: {}", err);
             return;
         }
     };
