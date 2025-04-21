@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use jsonrpsee::async_client::Client;
-use server::api::ipfs::IpfsClient;
+use server::api::{ipfs::IpfsClient, types::ipfs::PinAction};
 use std::{fmt::Debug, path::Path};
 use tokio::{fs::File, io::AsyncReadExt};
 
@@ -29,6 +29,14 @@ enum Command {
         #[arg(long)]
         file_path: Option<String>,
     },
+
+    Remove {
+        #[arg(long)]
+        hash: Option<String>,
+
+        #[arg(long)]
+        file_path: Option<String>,
+    },
 }
 
 impl FileCommand {
@@ -36,6 +44,9 @@ impl FileCommand {
         match self.command {
             Command::Add { ref file_path } => Self::add(&client, file_path, config).await?,
             Command::Get { hash, file_path } => Self::get(&client, config, hash, file_path).await?,
+            Command::Remove { hash, file_path } => {
+                Self::remove(&client, config, hash, file_path).await?
+            }
         };
 
         Ok(())
@@ -45,7 +56,7 @@ impl FileCommand {
     where
         F: AsRef<Path> + Into<String> + Debug + std::marker::Copy,
     {
-        let encryption_key = config.encryption_key().map_err(CommandError::Error)?;
+        let encryption_key = config.encryption_key()?;
 
         let mut file = File::open(file_path).await?;
         let mut contents = vec![];
@@ -56,8 +67,8 @@ impl FileCommand {
         let data = bytes_to_string_literal(&data);
 
         let add_response = client.add(data.as_bytes().to_vec()).await?;
-        config.update_hash(file_path, add_response.hash.clone());
-        println!("File {:?} added to ipfs: {}", file_path, add_response.hash);
+        config.add_hash(file_path, add_response.hash.clone());
+        println!("File {:?} added to ipfs: {}", file_path, &add_response.hash);
 
         Ok(())
     }
@@ -70,6 +81,48 @@ impl FileCommand {
     ) -> Result<(), CommandError>
     where
         H: Into<String> + Debug + std::clone::Clone,
+    {
+        let hash = Self::handle_file_args(config, hash, file_path)?;
+        let encryption_key = config.encryption_key()?;
+
+        let cat_response = client.cat(hash.clone()).await?;
+        let data = string_literal_to_bytes(&cat_response)?;
+        let decrypted_data = Encryption::decrypt(encryption_key, &data)
+            .map_err(|err| CommandError::Aead(err.to_string()))?;
+
+        println!(
+            "Ipfs file {:?} contents:\n{}",
+            hash,
+            String::from_utf8_lossy(&decrypted_data)
+        );
+
+        Ok(())
+    }
+
+    async fn remove<H>(
+        client: &Client,
+        config: &mut Config,
+        hash: Option<H>,
+        file_path: Option<H>,
+    ) -> Result<(), CommandError>
+    where
+        H: Into<String> + Debug + std::clone::Clone,
+    {
+        let hash = Self::handle_file_args(config, hash, file_path)?;
+
+        config.remove_hash(&hash);
+        let _ = client.pin(PinAction::rm, Some(hash)).await?;
+
+        Ok(())
+    }
+
+    fn handle_file_args<H>(
+        config: &Config,
+        hash: Option<H>,
+        file_path: Option<H>,
+    ) -> Result<String, CommandError>
+    where
+        H: Into<String>,
     {
         let hash: String = match (hash, file_path) {
             (None, None) => {
@@ -85,20 +138,8 @@ impl FileCommand {
             (None, Some(file_path)) => config.hash(file_path)?.into(),
             (Some(hash), None) => hash.into(),
         };
-        let encryption_key = config.encryption_key().map_err(CommandError::Error)?;
 
-        let cat_response = client.cat(hash.clone()).await?;
-        let data = string_literal_to_bytes(&cat_response)?;
-        let decrypted_data = Encryption::decrypt(encryption_key, &data)
-            .map_err(|err| CommandError::Aead(err.to_string()))?;
-
-        println!(
-            "Ipfs file {:?} contents:\n{}",
-            hash,
-            String::from_utf8_lossy(&decrypted_data)
-        );
-
-        Ok(())
+        Ok(hash)
     }
 }
 

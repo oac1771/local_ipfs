@@ -1,8 +1,13 @@
 server
+    - create bootnode server
+        - fails when boot-node flag is used. I bet its because sender is dropped? if no ipfs client
+    - update state once pin rm has been called 
+        - should gossip this to other nodes
     - look into gossiping so changes can propogate over the network 
+        - should gossip pinning requests and remove pinning requests across network
+        - will need save gossiped hash in state
+
 cli
-    - save added files to config (file_path to ipfs hash)
-    - get command can ask for file_path or ipfs hash
     - start/stop docker compose 
         - would need server image to be in remote public registry
 

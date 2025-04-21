@@ -2,14 +2,15 @@ pub mod builder;
 pub mod state;
 
 use jsonrpsee::{server::ServerBuilder as JosnRpseeServerBuilder, RpcModule};
-use tokio::{select, signal::ctrl_c, task::JoinHandle};
+use state::StateClient;
+use tokio::{select, signal::ctrl_c};
 use tracing::{error, info};
 
 pub struct Server {
     rpc_module: RpcModule<()>,
     port: String,
     ip: String,
-    state_handle: JoinHandle<()>,
+    state_client: StateClient,
 }
 
 impl Server {
@@ -17,13 +18,13 @@ impl Server {
         rpc_module: RpcModule<()>,
         port: String,
         ip: String,
-        state_handle: JoinHandle<()>,
+        state_client: StateClient,
     ) -> Self {
         Self {
             rpc_module,
             port,
             ip,
-            state_handle,
+            state_client,
         }
     }
 
@@ -35,21 +36,17 @@ impl Server {
         let server_handle = server.start(self.rpc_module);
 
         select! {
-            result = tokio::spawn(server_handle.clone().stopped()) => {
-                if let Err(err) = result {
-                    error!("Server stopped unexpectedly: {:?}", err);
-                };
-            },
-            result = self.state_handle => {
-                if let Err(err) = result {
-                    error!("State stopped unexpectedly: {:?}", err);
-                };
-            },
+            _ = server_handle.clone().stopped() => {},
+            _ = self.state_client.clone().stopped() => {},
             _ = ctrl_c() => {}
         };
 
         info!("Shutting down...");
         if let Err(err) = server_handle.stop() {
+            error!("Error while stoping server: {}", err);
+        };
+
+        if let Err(err) = self.state_client.stop() {
             error!("Error while stoping server: {}", err);
         };
 

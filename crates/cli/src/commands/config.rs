@@ -46,10 +46,13 @@ impl Config {
         Ok(())
     }
 
-    pub fn encryption_key(&self) -> Result<&Vec<u8>, String> {
-        self.encryption_key
+    pub fn encryption_key(&self) -> Result<&Vec<u8>, CommandError> {
+        let key = self
+            .encryption_key
             .as_ref()
-            .ok_or_else(|| "Encryption key not set".into())
+            .ok_or_else(|| CommandError::Error("Encryption key not set".into()))?;
+
+        Ok(key)
     }
 
     pub fn hash<S: Into<String>>(&self, file_path: S) -> Result<&String, CommandError> {
@@ -67,7 +70,11 @@ impl Config {
         self.encryption_key = Some(encryption_key)
     }
 
-    pub fn update_hash<S: Into<String>>(&mut self, file_path: S, hash: String) {
+    pub fn add_hash<S: Into<String>>(&mut self, file_path: S, hash: String) {
         self.hashes.insert(hash, file_path.into());
+    }
+
+    pub fn remove_hash(&mut self, hash: &str) {
+        self.hashes.remove(hash);
     }
 }

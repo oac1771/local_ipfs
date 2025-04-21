@@ -7,6 +7,7 @@ use futures::future::BoxFuture;
 use serde::de::DeserializeOwned;
 use tracing::error;
 
+#[derive(Debug)]
 pub enum Module {
     Util,
     Ipfs,

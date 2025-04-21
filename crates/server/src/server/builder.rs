@@ -3,6 +3,7 @@ use crate::rpc::{ipfs::IpfsApi, metrics::MetricsApi, util::UtilApi, Module};
 use std::{env::var, ops::ControlFlow};
 
 use jsonrpsee::{core::RegisterMethodError, Methods, RpcModule};
+use tracing::info;
 use tracing_subscriber::{reload::Handle, EnvFilter, Registry};
 
 pub(crate) struct NoI;
@@ -58,9 +59,9 @@ impl ServerBuilder<String, String, Vec<Module>> {
     ) -> Result<Server, RegisterMethodError> {
         let mut rpc_module = RpcModule::new(());
         let state = ServerState::new();
-        let (state_handle, state_client) = state.start();
+        let state_client = state.start();
 
-        let result = self.modules.into_iter().try_for_each(|m| {
+        let result = self.modules.iter().try_for_each(|m| {
             let methods: Methods = match m {
                 Module::Ipfs => {
                     let ipfs_base_url =
@@ -82,7 +83,8 @@ impl ServerBuilder<String, String, Vec<Module>> {
 
         match result {
             ControlFlow::Continue(()) => {
-                Ok(Server::new(rpc_module, self.port, self.ip, state_handle))
+                info!("Building server with modules: {:?}", self.modules);
+                Ok(Server::new(rpc_module, self.port, self.ip, state_client))
             }
             ControlFlow::Break(err) => Err(err),
         }

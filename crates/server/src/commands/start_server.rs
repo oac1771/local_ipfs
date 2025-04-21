@@ -14,6 +14,9 @@ pub struct StartServerCmd {
 
     #[arg(long, default_value = "false")]
     enable_metrics: bool,
+
+    #[arg(long, default_value = "false")]
+    boot_node: bool,
 }
 
 impl StartServerCmd {
@@ -21,10 +24,12 @@ impl StartServerCmd {
         self,
         reload_handle: Handle<EnvFilter, Registry>,
     ) -> Result<(), CommandError> {
-        let mut modules = vec![Module::Util, Module::Ipfs];
+        let mut modules = vec![Module::Util];
 
         if self.enable_metrics {
             modules.push(Module::Metrics)
+        } else if !self.boot_node {
+            modules.push(Module::Ipfs)
         }
 
         let server = ServerBuilder::new()

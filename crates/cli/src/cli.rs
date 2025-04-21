@@ -40,7 +40,7 @@ pub async fn run() {
             Ok(client) => match args.command {
                 Command::File(cmd) => cmd.handle(client, &mut config).await,
                 Command::Util(cmd) => cmd.handle(client).await,
-                Command::CreateKey(_) => Ok(()),
+                _ => Ok(()),
             },
             Err(err) => Err(CommandError::JsonRpsee { source: err }),
         }

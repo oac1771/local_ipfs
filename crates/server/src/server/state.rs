@@ -2,15 +2,11 @@ use std::collections::HashSet;
 
 use tokio::{
     select,
-    sync::{
-        mpsc::{channel, Receiver, Sender},
-        oneshot,
-    },
-    task::JoinHandle,
+    sync::{mpsc, oneshot, watch},
     time::{sleep, Duration},
 };
 
-use tracing::error;
+use tracing::{error, info};
 
 pub struct ServerState {
     ipfs_hashes: HashSet<String>,
@@ -18,7 +14,8 @@ pub struct ServerState {
 
 #[derive(Clone)]
 pub struct StateClient {
-    tx: Sender<StateRequest>,
+    req_tx: mpsc::Sender<StateRequest>,
+    stop_tx: watch::Sender<()>,
 }
 
 #[derive(Debug)]
@@ -40,8 +37,17 @@ enum StateResponse {
 }
 
 impl StateClient {
-    pub fn new(tx: Sender<StateRequest>) -> Self {
-        Self { tx }
+    pub fn new(req_tx: mpsc::Sender<StateRequest>, stop_tx: watch::Sender<()>) -> Self {
+        Self { req_tx, stop_tx }
+    }
+
+    pub async fn stopped(self) {
+        self.stop_tx.closed().await
+    }
+
+    pub fn stop(&self) -> Result<(), StateClientError<()>> {
+        self.stop_tx.send(())?;
+        Ok(())
     }
 
     pub async fn add_ipfs_hash(&self, hash: String) -> Result<(), StateClientError<StateRequest>> {
@@ -66,10 +72,10 @@ impl StateClient {
             oneshot::channel::<Result<StateResponse, StateClientError<StateRequest>>>();
         let req = StateRequest { payload, sender };
 
-        self.tx
+        self.req_tx
             .send(req)
             .await
-            .map_err(|err| StateClientError::Send { source: err })?;
+            .map_err(|err| StateClientError::MpscSend { source: err })?;
 
         let resp = Self::receive_response(receiver).await?;
 
@@ -100,16 +106,27 @@ impl ServerState {
         }
     }
 
-    pub fn start(self) -> (JoinHandle<()>, StateClient) {
-        let (tx, rx) = channel::<StateRequest>(100);
-        let state_handle = tokio::spawn(self.listen(rx));
-        let state_client = StateClient::new(tx);
+    pub fn start(self) -> StateClient {
+        let (req_tx, req_rx) = mpsc::channel::<StateRequest>(100);
+        let (stop_tx, stop_rx) = watch::channel(());
 
-        (state_handle, state_client)
+        tokio::spawn(self.run(req_rx, stop_rx));
+        StateClient::new(req_tx, stop_tx)
     }
 
-    async fn listen(mut self, mut rx: Receiver<StateRequest>) {
-        while let Some(req) = rx.recv().await {
+    async fn run(self, req_rx: mpsc::Receiver<StateRequest>, mut stop_rx: watch::Receiver<()>) {
+        select! {
+            _ = self.listen(req_rx) => {
+                error!("State stopped unexpectedly");
+            },
+            _ = stop_rx.changed() => {
+                info!("State has shutdown after receiving message");
+            }
+        }
+    }
+
+    async fn listen(mut self, mut req_rx: mpsc::Receiver<StateRequest>) {
+        while let Some(req) = req_rx.recv().await {
             let resp = match req.payload {
                 StateRequestPayload::AddIpfsHash { hash } => {
                     self.ipfs_hashes.insert(hash);
@@ -138,9 +155,15 @@ impl ServerState {
 #[derive(thiserror::Error, Debug)]
 pub enum StateClientError<T> {
     #[error("")]
-    Send {
+    MpscSend {
         #[from]
         source: tokio::sync::mpsc::error::SendError<T>,
+    },
+
+    #[error("")]
+    WatchSend {
+        #[from]
+        source: tokio::sync::watch::error::SendError<T>,
     },
 
     #[error("")]
