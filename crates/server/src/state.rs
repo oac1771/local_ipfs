@@ -8,7 +8,7 @@ use tokio::{
 
 use tracing::{error, info};
 
-pub struct ServerState {
+pub struct State {
     ipfs_hashes: HashSet<String>,
 }
 
@@ -99,7 +99,7 @@ impl StateClient {
     }
 }
 
-impl ServerState {
+impl State {
     pub fn new() -> Self {
         Self {
             ipfs_hashes: HashSet::new(),

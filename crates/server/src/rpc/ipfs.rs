@@ -7,7 +7,7 @@ use crate::{
         },
     },
     rpc::error::RpcServeError,
-    server::state::StateClient,
+    state::StateClient,
 };
 use bytes::Bytes;
 use futures::FutureExt;

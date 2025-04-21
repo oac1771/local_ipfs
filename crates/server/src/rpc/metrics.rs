@@ -12,7 +12,7 @@ use tokio::{
 };
 use tracing::{debug, info};
 
-use crate::{api::metrics::MetricsServer, server::state::StateClient};
+use crate::{api::metrics::MetricsServer, state::StateClient};
 
 use super::Call;
 

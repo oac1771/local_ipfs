@@ -3,3 +3,4 @@ pub mod cli;
 mod commands;
 mod rpc;
 mod server;
+mod state;

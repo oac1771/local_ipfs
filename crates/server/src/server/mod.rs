@@ -1,8 +1,7 @@
 pub mod builder;
-pub mod state;
 
+use crate::state::StateClient;
 use jsonrpsee::{server::ServerBuilder as JosnRpseeServerBuilder, RpcModule};
-use state::StateClient;
 use tokio::{select, signal::ctrl_c};
 use tracing::{error, info};
 

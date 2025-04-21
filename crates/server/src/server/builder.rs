@@ -1,5 +1,8 @@
-use super::{state::ServerState, Server};
-use crate::rpc::{ipfs::IpfsApi, metrics::MetricsApi, util::UtilApi, Module};
+use super::Server;
+use crate::{
+    rpc::{ipfs::IpfsApi, metrics::MetricsApi, util::UtilApi, Module},
+    state::State,
+};
 use std::{env::var, ops::ControlFlow};
 
 use jsonrpsee::{core::RegisterMethodError, Methods, RpcModule};
@@ -58,7 +61,7 @@ impl ServerBuilder<String, String, Vec<Module>> {
         reload_handle: Handle<EnvFilter, Registry>,
     ) -> Result<Server, RegisterMethodError> {
         let mut rpc_module = RpcModule::new(());
-        let state = ServerState::new();
+        let state = State::new();
         let state_client = state.start();
 
         let result = self.modules.iter().try_for_each(|m| {

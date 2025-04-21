@@ -1,6 +1,5 @@
 server
-    - create bootnode server
-        - fails when boot-node flag is used. I bet its because sender is dropped? if no ipfs client
+    - start libp2p server...
     - update state once pin rm has been called 
         - should gossip this to other nodes
     - look into gossiping so changes can propogate over the network 
