@@ -1,6 +1,6 @@
 pub mod builder;
 
-use crate::state::StateClient;
+use crate::{network::NetworkClient, state::StateClient};
 use jsonrpsee::{server::ServerBuilder as JosnRpseeServerBuilder, RpcModule};
 use tokio::{select, signal::ctrl_c};
 use tracing::{error, info};
@@ -10,6 +10,7 @@ pub struct Server {
     port: String,
     ip: String,
     state_client: StateClient,
+    network_client: NetworkClient,
 }
 
 impl Server {
@@ -18,12 +19,14 @@ impl Server {
         port: String,
         ip: String,
         state_client: StateClient,
+        network_client: NetworkClient,
     ) -> Self {
         Self {
             rpc_module,
             port,
             ip,
             state_client,
+            network_client,
         }
     }
 
@@ -37,6 +40,7 @@ impl Server {
         select! {
             _ = server_handle.clone().stopped() => {},
             _ = self.state_client.clone().stopped() => {},
+            _ = self.network_client.clone().stopped() => {},
             _ = ctrl_c() => {}
         };
 

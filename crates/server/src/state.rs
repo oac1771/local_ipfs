@@ -86,7 +86,7 @@ impl StateClient {
         receiver: oneshot::Receiver<Result<StateResponse, StateClientError<StateRequest>>>,
     ) -> Result<StateResponse, StateClientError<StateRequest>> {
         select! {
-            _ = sleep(Duration::from_secs(5)) => {
+            _ = sleep(Duration::from_secs(2)) => {
                 Err(StateClientError::Timeout)
             },
             msg = receiver => {

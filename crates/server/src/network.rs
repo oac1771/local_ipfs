@@ -13,7 +13,7 @@ use libp2p::{
 
 use tokio::{
     select,
-    sync::{broadcast, mpsc, oneshot},
+    sync::{broadcast, mpsc, oneshot, watch},
     task::yield_now,
 };
 use tracing::{error, info};
@@ -29,6 +29,7 @@ pub struct Network {
 pub struct NetworkClient {
     req_tx: mpsc::Sender<ClientRequest>,
     gossip_msg_tx: broadcast::Sender<GossipMessage>,
+    stop_tx: watch::Sender<()>,
 }
 
 impl NetworkBuilder {
@@ -75,11 +76,21 @@ impl NetworkClient {
     fn new(
         req_tx: mpsc::Sender<ClientRequest>,
         gossip_msg_tx: broadcast::Sender<GossipMessage>,
+        stop_tx: watch::Sender<()>,
     ) -> Self {
         Self {
             req_tx,
             gossip_msg_tx,
+            stop_tx,
         }
+    }
+
+    pub async fn stopped(self) {
+        self.stop_tx.closed().await
+    }
+
+    pub async fn _gossip_receiver(&self) -> broadcast::Receiver<GossipMessage> {
+        self.gossip_msg_tx.subscribe()
     }
 }
 
@@ -87,12 +98,13 @@ impl Network {
     pub fn start(mut self) -> Result<NetworkClient, NetworkError> {
         let (req_tx, req_rx) = mpsc::channel::<ClientRequest>(100);
         let (gossip_msg_tx, _) = broadcast::channel::<GossipMessage>(100);
+        let (stop_tx, stop_rx) = watch::channel(());
 
         self.swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
-        let network_client = NetworkClient::new(req_tx, gossip_msg_tx.clone());
+        let network_client = NetworkClient::new(req_tx, gossip_msg_tx.clone(), stop_tx);
 
-        tokio::spawn(async move { self.run(req_rx, gossip_msg_tx).await });
+        tokio::spawn(async move { self.run(req_rx, gossip_msg_tx, stop_rx).await });
 
         Ok(network_client)
     }
@@ -101,11 +113,13 @@ impl Network {
         &mut self,
         mut req_rx: mpsc::Receiver<ClientRequest>,
         gossip_msg_tx: broadcast::Sender<GossipMessage>,
+        mut stop_rx: watch::Receiver<()>,
     ) -> Result<(), NetworkError> {
         loop {
             select! {
                 Some(request) = req_rx.recv() => self.handle_client_request(request),
-                event = self.swarm.select_next_some() => self.handle_event(event, &gossip_msg_tx).await
+                event = self.swarm.select_next_some() => self.handle_event(event, &gossip_msg_tx).await,
+                _ = stop_rx.changed() => {}
             }
         }
     }

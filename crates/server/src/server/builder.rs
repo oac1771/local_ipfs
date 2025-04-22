@@ -65,7 +65,7 @@ impl ServerBuilder<String, String, Vec<Module>> {
         let state = State::new();
         let network = NetworkBuilder::build().unwrap();
         let state_client = state.start();
-        let _network_client = network.start().unwrap();
+        let network_client = network.start().unwrap();
 
         let result = self.modules.iter().try_for_each(|m| {
             let methods: Methods = match m {
@@ -90,7 +90,13 @@ impl ServerBuilder<String, String, Vec<Module>> {
         match result {
             ControlFlow::Continue(()) => {
                 info!("Building server with modules: {:?}", self.modules);
-                Ok(Server::new(rpc_module, self.port, self.ip, state_client))
+                Ok(Server::new(
+                    rpc_module,
+                    self.port,
+                    self.ip,
+                    state_client,
+                    network_client,
+                ))
             }
             ControlFlow::Break(err) => Err(err),
         }
