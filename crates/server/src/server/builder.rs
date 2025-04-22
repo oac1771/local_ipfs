@@ -1,5 +1,6 @@
 use super::Server;
 use crate::{
+    network::NetworkBuilder,
     rpc::{ipfs::IpfsApi, metrics::MetricsApi, util::UtilApi, Module},
     state::State,
 };
@@ -9,7 +10,7 @@ use jsonrpsee::{core::RegisterMethodError, Methods, RpcModule};
 use tracing::info;
 use tracing_subscriber::{reload::Handle, EnvFilter, Registry};
 
-pub(crate) struct NoI;
+pub(crate) struct NoIp;
 pub(crate) struct NoP;
 pub(crate) struct NoM;
 
@@ -19,10 +20,10 @@ pub struct ServerBuilder<I, P, M> {
     modules: M,
 }
 
-impl ServerBuilder<NoI, NoP, NoM> {
+impl ServerBuilder<NoIp, NoP, NoM> {
     pub fn new() -> Self {
         Self {
-            ip: NoI,
+            ip: NoIp,
             port: NoP,
             modules: NoM,
         }
@@ -62,7 +63,9 @@ impl ServerBuilder<String, String, Vec<Module>> {
     ) -> Result<Server, RegisterMethodError> {
         let mut rpc_module = RpcModule::new(());
         let state = State::new();
+        let network = NetworkBuilder::build().unwrap();
         let state_client = state.start();
+        let _network_client = network.start().unwrap();
 
         let result = self.modules.iter().try_for_each(|m| {
             let methods: Methods = match m {

@@ -6,7 +6,7 @@ use tokio::{
     time::{sleep, Duration},
 };
 
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 pub struct State {
     ipfs_hashes: HashSet<String>,
@@ -115,6 +115,7 @@ impl State {
     }
 
     async fn run(self, req_rx: mpsc::Receiver<StateRequest>, mut stop_rx: watch::Receiver<()>) {
+        debug!("Starting state process...");
         select! {
             _ = self.listen(req_rx) => {
                 error!("State stopped unexpectedly");
