@@ -1,6 +1,7 @@
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     io,
+    str::FromStr,
     time::Duration,
 };
 
@@ -9,7 +10,7 @@ use libp2p::{
     gossipsub,
     multiaddr::Protocol,
     swarm::{NetworkBehaviour, SwarmEvent},
-    PeerId, Swarm,
+    Multiaddr, PeerId, Swarm,
 };
 
 use tokio::{
@@ -18,18 +19,24 @@ use tokio::{
     task::yield_now,
     time::Duration as TokioDuration,
 };
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 type GossipMessage = Vec<u8>;
 pub(crate) struct NoP;
+pub(crate) struct NoT;
+pub(crate) struct NoA;
 
-pub struct NetworkBuilder<P> {
+pub struct NetworkBuilder<P, T, A> {
     port: P,
+    is_boot_node: T,
+    boot_addr: A,
 }
 
 pub struct Network {
     swarm: Swarm<Behavior>,
     port: String,
+    is_boot_node: bool,
+    boot_addr: String,
 }
 
 #[derive(Clone)]
@@ -39,19 +46,43 @@ pub struct NetworkClient {
     stop_tx: watch::Sender<()>,
 }
 
-impl NetworkBuilder<NoP> {
+impl NetworkBuilder<NoP, NoT, NoA> {
     pub fn new() -> Self {
-        Self { port: NoP }
+        Self {
+            port: NoP,
+            is_boot_node: NoT,
+            boot_addr: NoA,
+        }
     }
 }
 
-impl<P> NetworkBuilder<P> {
-    pub fn with_port(self, port: impl Into<String>) -> NetworkBuilder<String> {
-        NetworkBuilder { port: port.into() }
+impl<P, T, A> NetworkBuilder<P, T, A> {
+    pub fn with_port(self, port: impl Into<String>) -> NetworkBuilder<String, T, A> {
+        NetworkBuilder {
+            port: port.into(),
+            is_boot_node: self.is_boot_node,
+            boot_addr: self.boot_addr,
+        }
+    }
+
+    pub fn with_is_boot_node(self, is_boot_node: bool) -> NetworkBuilder<P, bool, A> {
+        NetworkBuilder {
+            port: self.port,
+            is_boot_node,
+            boot_addr: self.boot_addr,
+        }
+    }
+
+    pub fn with_boot_addr(self, boot_addr: impl Into<String>) -> NetworkBuilder<P, T, String> {
+        NetworkBuilder {
+            port: self.port,
+            is_boot_node: self.is_boot_node,
+            boot_addr: boot_addr.into(),
+        }
     }
 }
 
-impl NetworkBuilder<String> {
+impl NetworkBuilder<String, bool, String> {
     pub fn build(self) -> Result<Network, NetworkError> {
         let swarm = libp2p::SwarmBuilder::with_new_identity()
             .with_tokio()
@@ -90,6 +121,8 @@ impl NetworkBuilder<String> {
         Ok(Network {
             swarm,
             port: self.port,
+            is_boot_node: self.is_boot_node,
+            boot_addr: self.boot_addr,
         })
     }
 }
@@ -169,6 +202,10 @@ impl Network {
         self.swarm.listen_on(addr.parse()?)?;
         self.get_listener_addresses().await?;
 
+        if !self.is_boot_node {
+            self.dial_bootnode();
+        }
+
         let network_client = NetworkClient::new(req_tx, gossip_msg_tx.clone(), stop_tx);
 
         tokio::spawn(async move { self.run(req_rx, gossip_msg_tx, stop_rx).await });
@@ -194,6 +231,19 @@ impl Network {
         }
 
         Ok(())
+    }
+
+    fn dial_bootnode(&mut self) {
+        match Multiaddr::from_str(&self.boot_addr) {
+            Ok(addr) => {
+                if let Err(err) = self.swarm.dial(addr) {
+                    warn!("Unable to dial boot addr: {}", err)
+                }
+            }
+            Err(err) => {
+                warn!("Unable to parse boot addr into Multiaddr: {}", err)
+            }
+        }
     }
 
     async fn run(
