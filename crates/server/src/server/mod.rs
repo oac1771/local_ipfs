@@ -1,9 +1,18 @@
 pub mod builder;
 
-use crate::{network::NetworkClient, state::StateClient};
+use crate::{network::NetworkClient, rpc::Module, state::StateClient};
 use jsonrpsee::{server::ServerBuilder as JosnRpseeServerBuilder, RpcModule};
 use tokio::{select, signal::ctrl_c};
 use tracing::{error, info};
+
+pub struct ServerConfig {
+    pub port: String,
+    pub network_port: String,
+    pub ip: String,
+    pub modules: Vec<Module>,
+    pub boot_node_addr: String,
+    pub is_boot_node: bool,
+}
 
 pub struct Server {
     rpc_module: RpcModule<()>,

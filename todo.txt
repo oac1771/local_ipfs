@@ -1,5 +1,5 @@
 server
-    - start libp2p server...
+    - add boot-node-addr cli arg and dial if not bootnode
     - update state once pin rm has been called 
         - should gossip this to other nodes
     - look into gossiping so changes can propogate over the network 

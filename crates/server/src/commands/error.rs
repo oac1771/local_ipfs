@@ -17,4 +17,7 @@ pub enum CommandError {
         #[from]
         source: std::io::Error,
     },
+
+    #[error("{0}")]
+    Arg(String),
 }
