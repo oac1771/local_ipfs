@@ -12,58 +12,76 @@ use tracing_subscriber::{reload::Handle, EnvFilter, Registry};
 
 pub(crate) struct NoIp;
 pub(crate) struct NoP;
+pub(crate) struct NoNp;
 pub(crate) struct NoM;
 
-pub struct ServerBuilder<I, P, M> {
+pub struct ServerBuilder<I, P, M, Np> {
     ip: I,
     port: P,
     modules: M,
+    network_port: Np,
 }
 
-impl ServerBuilder<NoIp, NoP, NoM> {
+impl ServerBuilder<NoIp, NoP, NoM, NoNp> {
     pub fn new() -> Self {
         Self {
             ip: NoIp,
             port: NoP,
             modules: NoM,
+            network_port: NoNp,
         }
     }
 }
 
-impl<I, P, M> ServerBuilder<I, P, M> {
-    pub fn with_port(self, port: impl Into<String>) -> ServerBuilder<I, String, M> {
+impl<I, P, M, Np> ServerBuilder<I, P, M, Np> {
+    pub fn with_port(self, port: impl Into<String>) -> ServerBuilder<I, String, M, Np> {
         ServerBuilder {
-            ip: self.ip,
             port: port.into(),
+            ip: self.ip,
             modules: self.modules,
+            network_port: self.network_port,
         }
     }
 
-    pub fn with_ip(self, ip: impl Into<String>) -> ServerBuilder<String, P, M> {
+    pub fn with_ip(self, ip: impl Into<String>) -> ServerBuilder<String, P, M, Np> {
         ServerBuilder {
             ip: ip.into(),
             port: self.port,
             modules: self.modules,
+            network_port: self.network_port,
         }
     }
 
-    pub fn with_modules(self, modules: Vec<Module>) -> ServerBuilder<I, P, Vec<Module>> {
+    pub fn with_modules(self, modules: Vec<Module>) -> ServerBuilder<I, P, Vec<Module>, Np> {
         ServerBuilder {
             ip: self.ip,
             port: self.port,
             modules,
+            network_port: self.network_port,
+        }
+    }
+
+    pub fn with_network_port(self, network_port: String) -> ServerBuilder<I, P, M, String> {
+        ServerBuilder {
+            ip: self.ip,
+            port: self.port,
+            modules: self.modules,
+            network_port,
         }
     }
 }
 
-impl ServerBuilder<String, String, Vec<Module>> {
+impl ServerBuilder<String, String, Vec<Module>, String> {
     pub async fn build(
         self,
         reload_handle: Handle<EnvFilter, Registry>,
     ) -> Result<Server, RegisterMethodError> {
         let mut rpc_module = RpcModule::new(());
         let state = State::new();
-        let network = NetworkBuilder::build().unwrap();
+        let network = NetworkBuilder::new()
+            .with_port(self.network_port)
+            .build()
+            .unwrap();
         let state_client = state.start();
         let network_client = network.start().await.unwrap();
 

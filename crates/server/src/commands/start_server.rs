@@ -9,6 +9,9 @@ pub struct StartServerCmd {
     #[arg(long, default_value = "8008")]
     port: String,
 
+    #[arg(long, default_value = "0")]
+    network_port: String,
+
     #[arg(long, default_value = "0.0.0.0")]
     ip: String,
 
@@ -36,6 +39,7 @@ impl StartServerCmd {
             .with_ip(self.ip)
             .with_port(self.port)
             .with_modules(modules)
+            .with_network_port(self.network_port)
             .build(reload_handle)
             .await?;
 

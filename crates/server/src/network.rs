@@ -9,7 +9,7 @@ use libp2p::{
     gossipsub,
     multiaddr::Protocol,
     swarm::{NetworkBehaviour, SwarmEvent},
-    Multiaddr, PeerId, Swarm,
+    PeerId, Swarm,
 };
 
 use tokio::{
@@ -21,10 +21,15 @@ use tokio::{
 use tracing::{error, info};
 
 type GossipMessage = Vec<u8>;
-pub struct NetworkBuilder;
+pub(crate) struct NoP;
+
+pub struct NetworkBuilder<P> {
+    port: P,
+}
 
 pub struct Network {
     swarm: Swarm<Behavior>,
+    port: String,
 }
 
 #[derive(Clone)]
@@ -34,8 +39,20 @@ pub struct NetworkClient {
     stop_tx: watch::Sender<()>,
 }
 
-impl NetworkBuilder {
-    pub fn build() -> Result<Network, NetworkError> {
+impl NetworkBuilder<NoP> {
+    pub fn new() -> Self {
+        Self { port: NoP }
+    }
+}
+
+impl<P> NetworkBuilder<P> {
+    pub fn with_port(self, port: impl Into<String>) -> NetworkBuilder<String> {
+        NetworkBuilder { port: port.into() }
+    }
+}
+
+impl NetworkBuilder<String> {
+    pub fn build(self) -> Result<Network, NetworkError> {
         let swarm = libp2p::SwarmBuilder::with_new_identity()
             .with_tokio()
             .with_tcp(
@@ -70,7 +87,10 @@ impl NetworkBuilder {
             })
             .build();
 
-        Ok(Network { swarm })
+        Ok(Network {
+            swarm,
+            port: self.port,
+        })
     }
 }
 
@@ -102,7 +122,9 @@ impl Network {
         let (gossip_msg_tx, _) = broadcast::channel::<GossipMessage>(100);
         let (stop_tx, stop_rx) = watch::channel(());
 
-        self.swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+        let addr = format!("/ip4/0.0.0.0/tcp/{}", self.port);
+
+        self.swarm.listen_on(addr.parse()?)?;
         self.get_listener_addresses().await?;
 
         let network_client = NetworkClient::new(req_tx, gossip_msg_tx.clone(), stop_tx);
@@ -273,6 +295,4 @@ pub enum NetworkError {
     #[error("Error: {0}")]
     Behavior(String),
 
-    #[error("Error: {0}")]
-    EmptyListeners(String),
 }
