@@ -203,7 +203,7 @@ impl Network {
         self.get_listener_addresses().await?;
 
         if !self.is_boot_node {
-            self.dial_bootnode();
+            self.dial_bootnode().await;
         }
 
         let network_client = NetworkClient::new(req_tx, gossip_msg_tx.clone(), stop_tx);
@@ -233,11 +233,26 @@ impl Network {
         Ok(())
     }
 
-    fn dial_bootnode(&mut self) {
+    async fn dial_bootnode(&mut self) {
         match Multiaddr::from_str(&self.boot_addr) {
             Ok(addr) => {
-                if let Err(err) = self.swarm.dial(addr) {
+                if let Err(err) = self.swarm.dial(addr.clone()) {
                     warn!("Unable to dial boot addr: {}", err)
+                } else {
+                    loop {
+                        select! {
+                            event = self.swarm.select_next_some() => {
+                                if let SwarmEvent::ConnectionEstablished { peer_id, .. } = event {
+                                    info!("Connected to bootnode: {}", peer_id);
+                                } else if let SwarmEvent::OutgoingConnectionError { peer_id, error, .. } = event {
+                                    warn!("Unable to connect to peer {:?}: {}", peer_id, error);
+                                }
+                            },
+                            _ = tokio::time::sleep(TokioDuration::from_millis(50)) => {
+                                break
+                            }
+                        };
+                    }
                 }
             }
             Err(err) => {
