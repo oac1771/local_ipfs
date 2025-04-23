@@ -111,8 +111,50 @@ impl NetworkClient {
         self.stop_tx.closed().await
     }
 
-    pub async fn _gossip_receiver(&self) -> broadcast::Receiver<GossipMessage> {
+    pub async fn gossip_receiver(&self) -> broadcast::Receiver<GossipMessage> {
         self.gossip_msg_tx.subscribe()
+    }
+
+    pub async fn subscribe(&self, topic: String) -> Result<(), NetworkError> {
+        let payload = ClientRequestPayload::Subscribe { topic };
+        let ClientResponse::Subscribe = self.send_request(payload).await? else {
+            return Err(NetworkError::UnexpectedResponse);
+        };
+
+        Ok(())
+    }
+
+    async fn send_request(
+        &self,
+        payload: ClientRequestPayload,
+    ) -> Result<ClientResponse, NetworkError> {
+        let (sender, receiver) = oneshot::channel::<Result<ClientResponse, NetworkError>>();
+        let req = ClientRequest { payload, sender };
+
+        self.req_tx
+            .send(req)
+            .await
+            .map_err(|err| NetworkError::MpscSend(err.to_string()))?;
+
+        let resp = Self::receive_response(receiver).await?;
+
+        Ok(resp)
+    }
+
+    async fn receive_response(
+        receiver: oneshot::Receiver<Result<ClientResponse, NetworkError>>,
+    ) -> Result<ClientResponse, NetworkError> {
+        select! {
+            _ = tokio::time::sleep(Duration::from_secs(2)) => {
+                Err(NetworkError::Timeout)
+            },
+            msg = receiver => {
+                match msg {
+                    Ok(resp) => Ok(resp),
+                    Err(err) => Err(err.into())
+                }
+            }
+        }?
     }
 }
 
@@ -292,7 +334,21 @@ pub enum NetworkError {
         source: libp2p::identity::ParseError,
     },
 
-    #[error("Error: {0}")]
-    Behavior(String),
+    #[error("{source}")]
+    Recv {
+        #[from]
+        source: tokio::sync::oneshot::error::RecvError,
+    },
 
+    #[error("Timeout")]
+    Timeout,
+
+    #[error("UnexpectedResponse")]
+    UnexpectedResponse,
+
+    #[error("MpscSend Error: {0}")]
+    MpscSend(String),
+
+    #[error("Behavior Error: {0}")]
+    Behavior(String),
 }
