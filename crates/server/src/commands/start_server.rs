@@ -36,7 +36,8 @@ impl StartServerCmd {
             .with_ip(self.ip)
             .with_port(self.port)
             .with_modules(modules)
-            .build(reload_handle)?;
+            .build(reload_handle)
+            .await?;
 
         server.run().await?;
 

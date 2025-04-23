@@ -50,7 +50,7 @@ impl Server {
         };
 
         if let Err(err) = self.state_client.stop() {
-            error!("Error while stoping server: {}", err);
+            error!("Error while stoping state: {}", err);
         };
 
         Ok(())

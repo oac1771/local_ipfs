@@ -1,4 +1,6 @@
 server
+    - make network builder be able to take port for bootnode purposes
+        - use builder pattern
     - start libp2p server...
     - update state once pin rm has been called 
         - should gossip this to other nodes

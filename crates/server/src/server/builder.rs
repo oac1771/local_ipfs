@@ -57,7 +57,7 @@ impl<I, P, M> ServerBuilder<I, P, M> {
 }
 
 impl ServerBuilder<String, String, Vec<Module>> {
-    pub fn build(
+    pub async fn build(
         self,
         reload_handle: Handle<EnvFilter, Registry>,
     ) -> Result<Server, RegisterMethodError> {
@@ -65,7 +65,7 @@ impl ServerBuilder<String, String, Vec<Module>> {
         let state = State::new();
         let network = NetworkBuilder::build().unwrap();
         let state_client = state.start();
-        let network_client = network.start().unwrap();
+        let network_client = network.start().await.unwrap();
 
         let result = self.modules.iter().try_for_each(|m| {
             let methods: Methods = match m {
