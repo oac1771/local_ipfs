@@ -144,12 +144,21 @@ impl NetworkClient {
         self.stop_tx.closed().await
     }
 
+    pub fn stop(self) -> Result<(), NetworkError> {
+        self.stop_tx
+            .send(())
+            .map_err(|err| NetworkError::WatchSend { source: err })?;
+        Ok(())
+    }
+
     pub async fn gossip_receiver(&self) -> broadcast::Receiver<GossipMessage> {
         self.gossip_msg_tx.subscribe()
     }
 
-    pub async fn subscribe(&self, topic: String) -> Result<(), NetworkError> {
-        let payload = ClientRequestPayload::Subscribe { topic };
+    pub async fn subscribe(&self, topic: impl Into<String>) -> Result<(), NetworkError> {
+        let payload = ClientRequestPayload::Subscribe {
+            topic: topic.into(),
+        };
         let ClientResponse::Subscribe = self.send_request(payload).await? else {
             return Err(NetworkError::UnexpectedResponse);
         };
@@ -333,9 +342,9 @@ impl Network {
             },
 
             SwarmEvent::Behaviour(BehaviorEvent::Gossipsub(gossipsub::Event::Subscribed {
-                peer_id: _peer_id,
+                peer_id,
                 topic,
-            })) => info!("A remote subscribed to a topic: {topic}"),
+            })) => info!("A remote peer {peer_id} subscribed to a topic: {topic}"),
             _ => {}
         }
         yield_now().await;
@@ -403,6 +412,12 @@ pub enum NetworkError {
     Recv {
         #[from]
         source: tokio::sync::oneshot::error::RecvError,
+    },
+
+    #[error("{source}")]
+    WatchSend {
+        #[from]
+        source: tokio::sync::watch::error::SendError<()>,
     },
 
     #[error("Timeout")]

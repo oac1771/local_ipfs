@@ -1,6 +1,10 @@
 pub mod builder;
 
-use crate::{network::NetworkClient, rpc::Module, state::StateClient};
+use crate::{
+    network::{NetworkClient, NetworkError},
+    rpc::Module,
+    state::StateClient,
+};
 use jsonrpsee::{server::ServerBuilder as JosnRpseeServerBuilder, RpcModule};
 use tokio::{select, signal::ctrl_c};
 use tracing::{error, info};
@@ -39,7 +43,7 @@ impl Server {
         }
     }
 
-    pub async fn run(self) -> Result<(), std::io::Error> {
+    pub async fn run(self) -> Result<(), ServerError> {
         let addr = format!("{0}:{1}", self.ip, self.port);
         info!("Starting Server on: {}", addr);
         let server = JosnRpseeServerBuilder::default().build(&addr).await?;
@@ -62,6 +66,31 @@ impl Server {
             error!("Error while stoping state: {}", err);
         };
 
+        if let Err(err) = self.network_client.stop() {
+            error!("Error while stoping network: {}", err);
+        };
+
         Ok(())
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ServerError {
+    #[error("{source}")]
+    StdIo {
+        #[from]
+        source: std::io::Error,
+    },
+
+    #[error("{source}")]
+    Network {
+        #[from]
+        source: NetworkError,
+    },
+
+    #[error("{source}")]
+    RegisterMethod {
+        #[from]
+        source: jsonrpsee::core::RegisterMethodError,
+    },
 }

@@ -7,9 +7,9 @@ pub enum CommandError {
     },
 
     #[error("{source}")]
-    RegisterMethod {
+    Server {
         #[from]
-        source: jsonrpsee::core::RegisterMethodError,
+        source: crate::server::ServerError,
     },
 
     #[error("{source}")]

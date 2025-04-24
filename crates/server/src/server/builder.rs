@@ -1,4 +1,4 @@
-use super::{Server, ServerConfig};
+use super::{Server, ServerConfig, ServerError};
 use crate::{
     network::NetworkBuilder,
     rpc::{ipfs::IpfsApi, metrics::MetricsApi, util::UtilApi, Module},
@@ -6,7 +6,7 @@ use crate::{
 };
 use std::{env::var, ops::ControlFlow};
 
-use jsonrpsee::{core::RegisterMethodError, Methods, RpcModule};
+use jsonrpsee::{Methods, RpcModule};
 use tracing::info;
 use tracing_subscriber::{reload::Handle, EnvFilter, Registry};
 
@@ -24,7 +24,7 @@ impl ServerBuilder {
     pub async fn build(
         self,
         reload_handle: Handle<EnvFilter, Registry>,
-    ) -> Result<Server, RegisterMethodError> {
+    ) -> Result<Server, ServerError> {
         let mut rpc_module = RpcModule::new(());
         let state = State::new();
 
@@ -32,10 +32,10 @@ impl ServerBuilder {
             .with_port(self.config.network_port)
             .with_is_boot_node(self.config.is_boot_node)
             .with_boot_addr(self.config.boot_node_addr)
-            .build()
-            .unwrap();
+            .build()?;
+
+        let network_client = network.start().await?;
         let state_client = state.start();
-        let network_client = network.start().await.unwrap();
 
         let result = self.config.modules.iter().try_for_each(|m| {
             let methods: Methods = match m {
@@ -68,7 +68,7 @@ impl ServerBuilder {
                     network_client,
                 ))
             }
-            ControlFlow::Break(err) => Err(err),
+            ControlFlow::Break(err) => Err(err.into()),
         }
     }
 }
