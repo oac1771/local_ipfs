@@ -7,7 +7,7 @@ use std::{
 
 use futures::StreamExt;
 use libp2p::{
-    gossipsub,
+    gossipsub, kad,
     multiaddr::Protocol,
     swarm::{NetworkBehaviour, SwarmEvent},
     Multiaddr, PeerId, Swarm,
@@ -110,7 +110,14 @@ impl NetworkBuilder<String, bool, String> {
                     gossipsub_config,
                 )?;
 
-                Ok(Behavior { gossipsub })
+                let local_id = key.public().to_peer_id();
+                let store = kad::store::MemoryStore::new(local_id);
+                let kademlia = kad::Behaviour::new(local_id, store);
+
+                Ok(Behavior {
+                    gossipsub,
+                    kademlia,
+                })
             })
             .map_err(|err| NetworkError::Behavior(err.to_string()))?
             .with_swarm_config(|cfg| {
@@ -212,6 +219,7 @@ impl Network {
         self.get_listener_addresses().await?;
 
         if !self.is_boot_node {
+            info!("dialing bootnode...");
             self.dial_bootnode().await;
         }
 
@@ -244,24 +252,33 @@ impl Network {
 
     async fn dial_bootnode(&mut self) {
         match Multiaddr::from_str(&self.boot_addr) {
-            Ok(addr) => {
-                if let Err(err) = self.swarm.dial(addr.clone()) {
-                    warn!("Unable to dial boot addr: {}", err)
-                } else {
-                    loop {
-                        select! {
-                            event = self.swarm.select_next_some() => {
-                                if let SwarmEvent::ConnectionEstablished { peer_id, .. } = event {
-                                    info!("Connected to bootnode: {}", peer_id);
-                                } else if let SwarmEvent::OutgoingConnectionError { peer_id, error, .. } = event {
-                                    warn!("Unable to connect to peer {:?}: {}", peer_id, error);
-                                }
-                            },
-                            _ = tokio::time::sleep(TokioDuration::from_millis(50)) => {
-                                break
+            Ok(mut address) => {
+                let Some(Protocol::P2p(peer)) = address.pop() else {
+                    warn!("Address did not end with peer id protocol. Unable to bootstrap to bootnode");
+                    return;
+                };
+
+                if let kad::RoutingUpdate::Failed = self
+                    .swarm
+                    .behaviour_mut()
+                    .kademlia
+                    .add_address(&peer, address)
+                {
+                    warn!("Dialing bootnode failed. Unable to bootstrap to bootnode");
+                    return;
+                }
+
+                loop {
+                    select! {
+                        event = self.swarm.select_next_some() => {
+                            if let SwarmEvent::Behaviour(BehaviorEvent::Kademlia(kad::Event::RoutingUpdated { peer, addresses, ..})) = event {
+                                info!("Routing table updated with peer: {}. Peer addresses: {:?}", peer, addresses);
                             }
-                        };
-                    }
+                        },
+                        _ = tokio::time::sleep(TokioDuration::from_millis(50)) => {
+                            break
+                        }
+                    };
                 }
             }
             Err(err) => {
@@ -354,6 +371,7 @@ impl Network {
 #[derive(NetworkBehaviour)]
 struct Behavior {
     gossipsub: gossipsub::Behaviour,
+    kademlia: kad::Behaviour<kad::store::MemoryStore>,
 }
 
 struct ClientRequest {

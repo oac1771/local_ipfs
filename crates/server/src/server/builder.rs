@@ -27,15 +27,14 @@ impl ServerBuilder {
     ) -> Result<Server, ServerError> {
         let mut rpc_module = RpcModule::new(());
         let state = State::new();
-
         let network = NetworkBuilder::new()
             .with_port(self.config.network_port)
             .with_is_boot_node(self.config.is_boot_node)
             .with_boot_addr(self.config.boot_node_addr)
             .build()?;
 
-        let network_client = network.start().await?;
         let state_client = state.start();
+        let network_client = network.start().await?;
 
         let result = self.config.modules.iter().try_for_each(|m| {
             let methods: Methods = match m {
