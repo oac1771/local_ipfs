@@ -1,7 +1,6 @@
 server
-    - use tokio::time::timeout instead of select!{} using duration
-    - add Identify protocol with kad
-        - https://docs.rs/libp2p-kad/latest/libp2p_kad/
+    - create integration tests
+
     - update state once pin rm has been called 
         - should gossip this to other nodes
     - look into gossiping so changes can propogate over the network 
