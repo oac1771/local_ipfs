@@ -7,9 +7,9 @@ use std::{
 
 use futures::StreamExt;
 use libp2p::{
-    gossipsub, kad,
+    gossipsub, identify, kad,
     multiaddr::Protocol,
-    swarm::{NetworkBehaviour, SwarmEvent},
+    swarm::{dial_opts::DialOpts, NetworkBehaviour, SwarmEvent},
     Multiaddr, PeerId, Swarm,
 };
 
@@ -110,13 +110,21 @@ impl NetworkBuilder<String, bool, String> {
                     gossipsub_config,
                 )?;
 
-                let local_id = key.public().to_peer_id();
+                let public_key = key.public();
+
+                let local_id = public_key.to_peer_id();
                 let store = kad::store::MemoryStore::new(local_id);
-                let kademlia = kad::Behaviour::new(local_id, store);
+                let mut kademlia = kad::Behaviour::new(local_id, store);
+                kademlia.set_mode(Some(kad::Mode::Server));
+
+                let identify_config =
+                    identify::Config::new("/local_ipfs/id/0.0.0".into(), public_key);
+                let identify = identify::Behaviour::new(identify_config);
 
                 Ok(Behavior {
                     gossipsub,
                     kademlia,
+                    identify,
                 })
             })
             .map_err(|err| NetworkError::Behavior(err.to_string()))?
@@ -253,33 +261,66 @@ impl Network {
     async fn dial_bootnode(&mut self) {
         match Multiaddr::from_str(&self.boot_addr) {
             Ok(mut address) => {
-                let Some(Protocol::P2p(peer)) = address.pop() else {
-                    warn!("Address did not end with peer id protocol. Unable to bootstrap to bootnode");
-                    return;
-                };
+                // let Some(Protocol::P2p(peer)) = address.pop() else {
+                //     warn!("Address did not end with peer id protocol. Unable to bootstrap to bootnode");
+                //     return;
+                // };
 
-                if let kad::RoutingUpdate::Failed = self
-                    .swarm
-                    .behaviour_mut()
-                    .kademlia
-                    .add_address(&peer, address)
-                {
-                    warn!("Dialing bootnode failed. Unable to bootstrap to bootnode");
-                    return;
+                // if let kad::RoutingUpdate::Failed = self
+                //     .swarm
+                //     .behaviour_mut()
+                //     .kademlia
+                //     .add_address(&peer, address)
+                // {
+                //     warn!("Adding bootnode address failed. Unable to bootstrap to bootnode");
+                //     return;
+                // }
+
+                match self.swarm.dial(address) {
+                    Ok(_) => info!("Dialing bootnode at {}", &self.boot_addr),
+                    Err(err) => {
+                        warn!("Failed to dial bootnode: {}", err);
+                        return;
+                    }
                 }
 
                 loop {
                     select! {
                         event = self.swarm.select_next_some() => {
-                            if let SwarmEvent::Behaviour(BehaviorEvent::Kademlia(kad::Event::RoutingUpdated { peer, addresses, ..})) = event {
-                                info!("Routing table updated with peer: {}. Peer addresses: {:?}", peer, addresses);
+                            match event {
+                                // SwarmEvent::Behaviour(BehaviorEvent::Identify(identify::Event::Received { peer_id: identified_peer, info, .. })) => {
+                                //     info!("Identify info received from {identified_peer}");
+                                //     for addr in info.listen_addrs {
+                                //         self.swarm.behaviour_mut().kademlia.add_address(&identified_peer, addr);
+                                //     }
+                                // }
+                                SwarmEvent::Behaviour(BehaviorEvent::Kademlia(kad::Event::RoutingUpdated { peer, .. })) => {
+                                    info!("Routing table updated with peer: {peer}");
+                                    let random_peer = PeerId::random();
+                                    self.swarm.behaviour_mut().kademlia.get_closest_peers(random_peer);
+                                },
+                                SwarmEvent::Behaviour(BehaviorEvent::Kademlia(kad::Event::OutboundQueryProgressed { result, .. })) => {
+                                    if let kad::QueryResult::GetClosestPeers(Ok(ok)) = result {
+                                        if ok.peers.is_empty() {
+                                            info!("Find node query yielded no peers");
+                                        } else {
+                                            for discovered_peer in ok.peers {
+                                                info!("Discovered peer from DHT: {:?}", discovered_peer);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                _ => {}
                             }
-                        },
+                        }
                         _ = tokio::time::sleep(TokioDuration::from_millis(50)) => {
+                            info!("Finished waiting for routing table update");
                             break
                         }
-                    };
+                    }
                 }
+
             }
             Err(err) => {
                 warn!("Unable to parse boot addr into Multiaddr: {}", err)
@@ -297,7 +338,17 @@ impl Network {
             select! {
                 Some(request) = req_rx.recv() => self.handle_client_request(request),
                 event = self.swarm.select_next_some() => self.handle_event(event, &gossip_msg_tx).await,
-                _ = stop_rx.changed() => break Ok(())
+                _ = stop_rx.changed() => break Ok(()),
+
+                _ = tokio::time::sleep(tokio::time::Duration::from_secs(1)) => {
+                    info!("Connected Peers: {:?}", self.swarm.connected_peers().collect::<Vec<&PeerId>>());
+                    for bucket in self.swarm.behaviour_mut().kademlia.kbuckets() {
+                        for entry in bucket.iter() {
+                            info!("routing table peer: {}", entry.node.key.preimage());
+                        }
+                    };
+
+                }
             }
         }
     }
@@ -362,6 +413,12 @@ impl Network {
                 peer_id,
                 topic,
             })) => info!("A remote peer {peer_id} subscribed to a topic: {topic}"),
+            SwarmEvent::Behaviour(BehaviorEvent::Identify(identify::Event::Received { peer_id: identified_peer, info, .. })) => {
+                info!("Identify info received from {identified_peer}");
+                for addr in info.listen_addrs {
+                    self.swarm.behaviour_mut().kademlia.add_address(&identified_peer, addr);
+                }
+            }
             _ => {}
         }
         yield_now().await;
@@ -372,6 +429,7 @@ impl Network {
 struct Behavior {
     gossipsub: gossipsub::Behaviour,
     kademlia: kad::Behaviour<kad::store::MemoryStore>,
+    identify: identify::Behaviour,
 }
 
 struct ClientRequest {
