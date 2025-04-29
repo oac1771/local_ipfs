@@ -1,5 +1,6 @@
 server
     - create integration tests
+        - bootstrap
 
     - update state once pin rm has been called 
         - should gossip this to other nodes

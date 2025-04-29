@@ -165,6 +165,15 @@ impl NetworkClient {
         Ok(())
     }
 
+    pub async fn get_connected_peers(&self) -> Result<Vec<PeerId>, NetworkError> {
+        let payload = ClientRequestPayload::ConnectedPeers;
+        let ClientResponse::ConnectedPeers { peers } = self.send_request(payload).await? else {
+            return Err(NetworkError::UnexpectedResponse);
+        };
+
+        Ok(peers)
+    }
+
     pub async fn gossip_receiver(&self) -> broadcast::Receiver<GossipMessage> {
         self.gossip_msg_tx.subscribe()
     }
@@ -220,9 +229,8 @@ impl Network {
 
         let network_client = NetworkClient::new(req_tx, gossip_msg_tx.clone(), stop_tx);
 
-        let addr = format!("/ip4/0.0.0.0/tcp/{}", self.port);
-
-        self.swarm.listen_on(addr.parse()?)?;
+        self.swarm
+            .listen_on(format!("/ip4/0.0.0.0/tcp/{}", self.port).parse()?)?;
         self.get_listener_addresses().await?;
 
         if !self.is_boot_node {
@@ -245,7 +253,7 @@ impl Network {
                         info!("Local node is listening on {full}");
                     }
                 },
-                _ = tokio::time::sleep(TokioDuration::from_millis(50)) => {
+                _ = tokio::time::sleep(TokioDuration::from_millis(25)) => {
                     break
                 }
             }
@@ -266,11 +274,11 @@ impl Network {
                 }
 
                 let Some(Protocol::P2p(peer_id)) = address.pop() else {
-                    warn!("Address did not end with peer id protocol. Unable to bootstrap to bootnode");
+                    warn!("Address did not end with peer_id protocol. Unable to bootstrap to bootnode");
                     return;
                 };
 
-                let duration = TokioDuration::from_secs(1);
+                let duration = TokioDuration::from_secs(5);
                 let mut identified = false;
                 let mut routed = false;
 
@@ -338,7 +346,7 @@ impl Network {
 
     fn handle_client_request(&mut self, request: ClientRequest) {
         let sender = request.sender;
-        match request.payload {
+        let result = match request.payload {
             ClientRequestPayload::Publish { topic, msg } => {
                 let tpc = gossipsub::IdentTopic::new(&topic);
                 let result =
@@ -349,7 +357,7 @@ impl Network {
                         info!("Successfully published message to {} topic", topic);
                         Ok(ClientResponse::Publish)
                     };
-                Self::send_client_response(result, sender);
+                result
             }
             ClientRequestPayload::Subscribe { topic } => {
                 let topic = gossipsub::IdentTopic::new(topic);
@@ -362,9 +370,16 @@ impl Network {
                         info!("Subscribed to topic: {}", topic);
                         Ok(ClientResponse::Subscribe)
                     };
-                Self::send_client_response(result, sender);
+                result
+            }
+            ClientRequestPayload::ConnectedPeers => {
+                let peers = self.swarm.connected_peers().cloned().collect::<Vec<_>>();
+                let result = ClientResponse::ConnectedPeers { peers };
+                Ok(result)
             }
         };
+
+        Self::send_client_response(result, sender);
     }
 
     fn send_client_response(
@@ -429,11 +444,13 @@ struct ClientRequest {
 pub enum ClientRequestPayload {
     Publish { topic: String, msg: Vec<u8> },
     Subscribe { topic: String },
+    ConnectedPeers,
 }
 
 pub enum ClientResponse {
     Publish,
     Subscribe,
+    ConnectedPeers { peers: Vec<PeerId> },
 }
 
 #[derive(Debug, thiserror::Error)]
