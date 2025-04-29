@@ -72,6 +72,14 @@ impl Server {
 
         Ok(())
     }
+
+    pub fn network_client(&self) -> &NetworkClient {
+        &self.network_client
+    }
+
+    pub fn state_client(&self) -> &StateClient {
+        &self.state_client
+    }
 }
 
 #[derive(thiserror::Error, Debug)]

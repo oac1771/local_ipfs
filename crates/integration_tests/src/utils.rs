@@ -5,10 +5,7 @@ use std::{
     io::{Cursor, Write},
     sync::{Arc, Mutex},
 };
-use tokio::{
-    select,
-    time::{sleep, Duration},
-};
+use tokio::time::{sleep, timeout, Duration};
 
 pub struct BufferWriter {
     pub buffer: Arc<Mutex<Vec<u8>>>,
@@ -32,22 +29,21 @@ pub trait Runner {
 
     fn log_filter(&self, log: &Log) -> bool;
 
-    fn get_logs(&self) -> Vec<Log> {
+    fn get_logs(&self) -> impl Iterator<Item = Log> {
         let log_buffer = self.log_buffer();
         let buffer = log_buffer.lock().unwrap();
         let log_output = String::from_utf8(buffer.clone()).unwrap();
         let cursor = Cursor::new(log_output);
         let logs = Deserializer::from_reader(cursor.clone())
             .into_iter::<Log>()
-            .map(|log| log.unwrap())
-            .collect::<Vec<Log>>();
+            .map(|log| log.unwrap());
 
         logs
     }
 
     fn log_output(&self) -> String {
         let logs = self.get_logs();
-        let output = serde_json::to_string_pretty(&logs).unwrap();
+        let output = serde_json::to_string_pretty(&logs.collect::<Vec<Log>>()).unwrap();
 
         output
     }
@@ -79,12 +75,10 @@ pub trait Runner {
             }
         };
 
-        select! {
-            _ = sleep(Duration::from_secs(10)) => {
-                let output = self.log_output();
-                panic!("Logs: {}\nFailed to find log entry: {}", output, entry)
-            },
-            _ = self.parse_logs(predicate, level) => {}
+        let duration = Duration::from_secs(10);
+        if let Err(_) = timeout(duration, self.parse_logs(predicate, level)).await {
+            let output = self.log_output();
+            panic!("Logs: {}\nFailed to find log entry: {}", output, entry)
         }
     }
 
@@ -94,7 +88,6 @@ pub trait Runner {
         while logs.len() == 0 {
             logs = self
                 .get_logs()
-                .into_iter()
                 .filter(|log| log.level == level.as_str())
                 .filter(|log| self.log_filter(log))
                 .filter(|log| match &log.fields {
@@ -103,7 +96,7 @@ pub trait Runner {
                 })
                 .collect::<Vec<Log>>();
 
-            let _ = sleep(Duration::from_millis(100)).await;
+            sleep(Duration::from_millis(100)).await;
         }
     }
 }

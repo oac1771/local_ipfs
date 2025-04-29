@@ -56,6 +56,12 @@ impl NetworkBuilder<NoP, NoT, NoA> {
     }
 }
 
+impl Default for NetworkBuilder<NoP, NoT, NoA> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<P, T, A> NetworkBuilder<P, T, A> {
     pub fn with_port(self, port: impl Into<String>) -> NetworkBuilder<String, T, A> {
         NetworkBuilder {
@@ -317,7 +323,7 @@ impl Network {
                 })
                 .await;
 
-                if let Err(_) = result {
+                if result.is_err() {
                     warn!("Timedout waiting to bootstrap bootnode");
                 } else {
                     info!("Bootstrap succeeded!");

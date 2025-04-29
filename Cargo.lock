@@ -1580,6 +1580,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
+ "server",
  "test_macro",
  "tokio",
  "tracing",
