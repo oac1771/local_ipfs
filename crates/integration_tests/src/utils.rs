@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
-use serde_json::Value;
 use std::{
     io::{Cursor, Write},
     sync::{Arc, Mutex},
@@ -26,8 +25,6 @@ impl Write for BufferWriter {
 #[allow(async_fn_in_trait)]
 pub trait Runner {
     fn log_buffer(&self) -> Arc<Mutex<Vec<u8>>>;
-
-    fn log_filter(&self, log: &Log) -> bool;
 
     fn get_logs(&self) -> impl Iterator<Item = Log> {
         let log_buffer = self.log_buffer();
@@ -89,7 +86,6 @@ pub trait Runner {
             logs = self
                 .get_logs()
                 .filter(|log| log.level == level.as_str())
-                .filter(|log| self.log_filter(log))
                 .filter(|log| match &log.fields {
                     Fields::Message { message } => predicate(message),
                     _ => false,
@@ -110,17 +106,12 @@ pub enum Eval {
 pub struct Log {
     fields: Fields,
     target: String,
-    spans: Vec<Value>,
     pub level: String,
 }
 
 impl Log {
     pub fn target(&self) -> String {
         self.target.to_string()
-    }
-
-    pub fn spans(&self) -> &Vec<Value> {
-        &self.spans
     }
 }
 

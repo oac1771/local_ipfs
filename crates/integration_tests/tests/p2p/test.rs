@@ -1,6 +1,6 @@
 #[cfg(feature = "integration_tests")]
 mod tests {
-    use integration_tests::utils::{Log, Runner};
+    use integration_tests::utils::Runner;
     use server::{
         network::NetworkClient,
         rpc::Module,
@@ -52,12 +52,6 @@ mod tests {
     }
 
     impl Runner for ServerRunner {
-        fn log_filter(&self, log: &Log) -> bool {
-            log.spans()
-                .iter()
-                .any(|val| val.to_string().contains(&self.name))
-        }
-
         fn log_buffer(&self) -> Arc<Mutex<Vec<u8>>> {
             self.log_buffer.clone()
         }
@@ -65,10 +59,12 @@ mod tests {
 
     #[test_macro::test]
     async fn bootstrap_to_bootnode_succeeds(log_buffer: Arc<Mutex<Vec<u8>>>) {
-        let _node_1 = ServerRunner::new(log_buffer.clone(), "node_1");
+        let node_1 = ServerRunner::new(log_buffer.clone(), "node_1");
         let _node_2 = ServerRunner::new(log_buffer.clone(), "node_2");
 
-        // let (_, client_1) = node_1.start();
+        let (_, state_client_1) = node_1.start("8888", false, "").await;
+
+        // node_1.assert_info_log_entry("foooooo").await
         // let (_, client_2) = node_2.start();
     }
 }
