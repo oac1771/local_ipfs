@@ -72,7 +72,7 @@ pub trait Runner {
             }
         };
 
-        let duration = Duration::from_secs(10);
+        let duration = Duration::from_secs(5);
         if let Err(_) = timeout(duration, self.parse_logs(predicate, level)).await {
             let output = self.log_output();
             panic!("Logs: {}\nFailed to find log entry: {}", output, entry)

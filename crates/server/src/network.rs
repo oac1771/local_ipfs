@@ -171,6 +171,15 @@ impl NetworkClient {
         Ok(())
     }
 
+    pub async fn get_peer_id(&self) -> Result<PeerId, NetworkError> {
+        let payload = ClientRequestPayload::PeerId;
+        let ClientResponse::PeerId { peer_id } = self.send_request(payload).await? else {
+            return Err(NetworkError::UnexpectedResponse);
+        };
+
+        Ok(peer_id)
+    }
+
     pub async fn get_connected_peers(&self) -> Result<Vec<PeerId>, NetworkError> {
         let payload = ClientRequestPayload::ConnectedPeers;
         let ClientResponse::ConnectedPeers { peers } = self.send_request(payload).await? else {
@@ -271,6 +280,7 @@ impl Network {
     async fn dial_bootnode(&mut self) {
         match Multiaddr::from_str(&self.boot_addr) {
             Ok(mut address) => {
+
                 match self.swarm.dial(address.clone()) {
                     Ok(_) => info!("Dialing bootnode at {}", &self.boot_addr),
                     Err(err) => {
@@ -346,6 +356,9 @@ impl Network {
                 Some(request) = req_rx.recv() => self.handle_client_request(request),
                 event = self.swarm.select_next_some() => self.handle_event(event, &gossip_msg_tx).await,
                 _ = stop_rx.changed() => break Ok(()),
+                _ = tokio::time::sleep(TokioDuration::from_secs(1)) => {
+                    info!("connected peers: {:?}", self.swarm.connected_peers().collect::<Vec<&PeerId>>());
+                }
             }
         }
     }
@@ -381,6 +394,11 @@ impl Network {
             ClientRequestPayload::ConnectedPeers => {
                 let peers = self.swarm.connected_peers().cloned().collect::<Vec<_>>();
                 let result = ClientResponse::ConnectedPeers { peers };
+                Ok(result)
+            }
+            ClientRequestPayload::PeerId => {
+                let peer_id = self.swarm.local_peer_id().clone();
+                let result = ClientResponse::PeerId { peer_id };
                 Ok(result)
             }
         };
@@ -451,12 +469,14 @@ pub enum ClientRequestPayload {
     Publish { topic: String, msg: Vec<u8> },
     Subscribe { topic: String },
     ConnectedPeers,
+    PeerId,
 }
 
 pub enum ClientResponse {
     Publish,
     Subscribe,
     ConnectedPeers { peers: Vec<PeerId> },
+    PeerId { peer_id: PeerId },
 }
 
 #[derive(Debug, thiserror::Error)]

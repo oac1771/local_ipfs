@@ -1,6 +1,6 @@
 server
     - create integration tests
-        - bootstrap
+        - figure out how to attach labels to logs so that each node can check for their respective log
 
     - update state once pin rm has been called 
         - should gossip this to other nodes
