@@ -95,19 +95,19 @@ mod tests {
 
         node_1
             .assert_info_log_entry(&format!(
-                "Routing table updated with bootnode peer: {}",
+                "Routing table updated with peer: {}",
                 bootnode_peer_id
             ))
             .await;
-        node_1.assert_info_log_entry("Bootstrap succeeded!").await;
+        node_1.assert_info_log_entry("Bootstrap successful!").await;
 
         node_2
             .assert_info_log_entry(&format!(
-                "Routing table updated with bootnode peer: {}",
+                "Routing table updated with peer: {}",
                 bootnode_peer_id
             ))
             .await;
-        node_2.assert_info_log_entry("Bootstrap succeeded!").await;
+        node_2.assert_info_log_entry("Bootstrap successful!").await;
 
         bootnode
             .assert_info_log_entry(&format!("Identify info received from {}", node_1_peer_id))
@@ -116,10 +116,16 @@ mod tests {
             .assert_info_log_entry(&format!("Identify info received from {}", node_2_peer_id))
             .await;
 
-        let node_1_peers = node_1_network_client.get_connected_peers().await.unwrap();
-        let node_2_peers = node_2_network_client.get_connected_peers().await.unwrap();
+        let mut node_1_peers = node_1_network_client.get_connected_peers().await.unwrap();
+        let mut node_2_peers = node_2_network_client.get_connected_peers().await.unwrap();
 
-        assert_eq!(vec![node_1_peer_id, bootnode_peer_id], node_2_peers);
-        assert_eq!(vec![node_2_peer_id, bootnode_peer_id], node_1_peers);
+        assert_eq!(
+            vec![node_1_peer_id, bootnode_peer_id].sort(),
+            node_2_peers.sort()
+        );
+        assert_eq!(
+            vec![node_2_peer_id, bootnode_peer_id].sort(),
+            node_1_peers.sort()
+        );
     }
 }

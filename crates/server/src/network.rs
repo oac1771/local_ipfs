@@ -292,35 +292,48 @@ impl Network {
                     }
                 }
 
-                loop {
-                    select! {
-                        event = self.swarm.select_next_some() => {
-                            match event {
-                                SwarmEvent::Behaviour(BehaviorEvent::Kademlia(kad::Event::RoutingUpdated { peer, .. })) => {
-                                    info!("Routing table updated with peer: {peer}");
-                                    let random_peer = PeerId::random();
-                                    self.swarm.behaviour_mut().kademlia.get_closest_peers(random_peer);
-                                },
-                                SwarmEvent::Behaviour(BehaviorEvent::Kademlia(kad::Event::OutboundQueryProgressed { result, .. })) => {
-                                    if let kad::QueryResult::GetClosestPeers(Ok(ok)) = result {
-                                        if ok.peers.is_empty() {
-                                            info!("Find node query yielded no peers");
-                                        } else {
-                                            for discovered_peer in ok.peers {
-                                                info!("Discovered peer from DHT: {:?}", discovered_peer);
-                                            }
-                                        }
-                                    }
-                                }
+                let mut routed = false;
 
-                                _ => {}
+                let duration = TokioDuration::from_secs(2);
+                let result = timeout(duration, async {
+                    while !routed {
+                        match self.swarm.select_next_some().await {
+                            SwarmEvent::Behaviour(BehaviorEvent::Kademlia(
+                                kad::Event::RoutingUpdated { peer, .. },
+                            )) => {
+                                info!("Routing table updated with peer: {peer}");
+                                let random_peer = PeerId::random();
+                                self.swarm
+                                    .behaviour_mut()
+                                    .kademlia
+                                    .get_closest_peers(random_peer);
                             }
-                        }
-                        _ = tokio::time::sleep(TokioDuration::from_millis(50)) => {
-                            info!("Finished waiting for routing table update");
-                            break
+                            SwarmEvent::Behaviour(BehaviorEvent::Kademlia(
+                                kad::Event::OutboundQueryProgressed {
+                                    result: kad::QueryResult::GetClosestPeers(Ok(ok)),
+                                    ..
+                                },
+                            )) => {
+                                if ok.peers.is_empty() {
+                                    warn!("Find node query yielded no peers");
+                                } else {
+                                    for discovered_peer in ok.peers {
+                                        info!("Discovered peer from DHT: {:?}", discovered_peer);
+                                    }
+                                    routed = true;
+                                }
+                            }
+
+                            _ => {}
                         }
                     }
+                })
+                .await;
+
+                if result.is_err() {
+                    warn!("Failed to bootstrap")
+                } else {
+                    info!("Bootstrap successful!")
                 }
             }
         }
@@ -378,7 +391,7 @@ impl Network {
                 Ok(result)
             }
             ClientRequestPayload::PeerId => {
-                let peer_id = self.swarm.local_peer_id().clone();
+                let peer_id = *self.swarm.local_peer_id();
                 let result = ClientResponse::PeerId { peer_id };
                 Ok(result)
             }
