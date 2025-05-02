@@ -26,6 +26,8 @@ impl Write for BufferWriter {
 pub trait Runner {
     fn log_buffer(&self) -> Arc<Mutex<Vec<u8>>>;
 
+    fn log_filter(&self, log: &Log) -> bool;
+
     fn get_logs(&self) -> impl Iterator<Item = Log> {
         let log_buffer = self.log_buffer();
         let buffer = log_buffer.lock().unwrap();
@@ -85,7 +87,8 @@ pub trait Runner {
         while logs.len() == 0 {
             logs = self
                 .get_logs()
-                .filter(|log| log.level == level.as_str())
+                .filter(|log| log.level() == level.as_str())
+                .filter(|log| self.log_filter(log))
                 .filter(|log| match &log.fields {
                     Fields::Message { message } => predicate(message),
                     _ => false,
@@ -104,14 +107,29 @@ pub enum Eval {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Log {
+    level: String,
     fields: Fields,
     target: String,
-    pub level: String,
+    span: Span,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct Span {
+    label: String,
+    name: String,
 }
 
 impl Log {
-    pub fn target(&self) -> String {
-        self.target.to_string()
+    pub fn target(&self) -> &str {
+        &self.target
+    }
+
+    pub fn label(&self) -> &str {
+        &self.span.label
+    }
+
+    pub fn level(&self) -> &str {
+        &self.level
     }
 }
 

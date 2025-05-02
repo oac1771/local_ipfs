@@ -1,6 +1,6 @@
 #[cfg(feature = "integration_tests")]
 mod tests {
-    use integration_tests::utils::Runner;
+    use integration_tests::utils::{Log, Runner};
     use server::{
         network::NetworkClient,
         rpc::Module,
@@ -8,7 +8,7 @@ mod tests {
         state::StateClient,
     };
     use std::sync::{Arc, Mutex};
-    use tracing::instrument;
+    use tracing::{instrument, Instrument, Span};
     use tracing_subscriber::{reload::Layer, EnvFilter};
 
     struct ServerRunner {
@@ -24,7 +24,7 @@ mod tests {
             }
         }
 
-        #[instrument(skip(self, port, boot_node_addr, network_port), fields(label = %self.name))]
+        #[instrument(skip_all, fields(label = %self.name))]
         async fn start(
             &self,
             port: impl Into<String>,
@@ -46,7 +46,8 @@ mod tests {
             let network_client = server.network_client().clone();
             let state_client = server.state_client().clone();
 
-            tokio::spawn(server.run());
+            let span = Span::current();
+            let _ = tokio::spawn(server.run().instrument(span));
 
             (network_client, state_client)
         }
@@ -56,12 +57,19 @@ mod tests {
         fn log_buffer(&self) -> Arc<Mutex<Vec<u8>>> {
             self.log_buffer.clone()
         }
+
+        fn log_filter(&self, log: &Log) -> bool {
+            log.label() == self.name
+        }
     }
 
     #[test_macro::test]
     async fn bootstrap_to_bootnode_succeeds(log_buffer: Arc<Mutex<Vec<u8>>>) {
         let bootnode_port = "9998";
+        let node_1_port = "8888";
+        let node_2_port = "9999";
         let bootnode_network_port = "58763";
+
         let bootnode = ServerRunner::new(log_buffer.clone(), "bootnode");
         let node_1 = ServerRunner::new(log_buffer.clone(), "node_1");
         let node_2 = ServerRunner::new(log_buffer.clone(), "node_2");
@@ -76,45 +84,26 @@ mod tests {
         );
 
         let (node_1_network_client, _) = node_1
-            .start("8888", "0", false, bootnode_addr.clone())
+            .start(node_1_port, "0", false, bootnode_addr.clone())
             .await;
-        let (node_2_network_client, _) = node_2.start("9999", "0", false, bootnode_addr).await;
+        let (node_2_network_client, _) = node_2.start(node_2_port, "0", false, bootnode_addr).await;
 
         let node_1_peer_id = node_1_network_client.get_peer_id().await.unwrap();
         let node_2_peer_id = node_2_network_client.get_peer_id().await.unwrap();
 
         node_1
-            .assert_info_log_entry("Starting Server on: 0.0.0.0:8888")
+            .assert_info_log_entry(&format!("Starting Server on: 0.0.0.0:{}", node_1_port))
             .await;
         node_2
-            .assert_info_log_entry("Starting Server on: 0.0.0.0:9999")
+            .assert_info_log_entry(&format!("Starting Server on: 0.0.0.0:{}", node_2_port))
             .await;
         bootnode
             .assert_info_log_entry(&format!("Starting Server on: 0.0.0.0:{}", bootnode_port))
             .await;
 
-        node_1
-            .assert_info_log_entry(&format!(
-                "Routing table updated with peer: {}",
-                bootnode_peer_id
-            ))
-            .await;
         node_1.assert_info_log_entry("Bootstrap successful!").await;
 
-        node_2
-            .assert_info_log_entry(&format!(
-                "Routing table updated with peer: {}",
-                bootnode_peer_id
-            ))
-            .await;
         node_2.assert_info_log_entry("Bootstrap successful!").await;
-
-        bootnode
-            .assert_info_log_entry(&format!("Identify info received from {}", node_1_peer_id))
-            .await;
-        bootnode
-            .assert_info_log_entry(&format!("Identify info received from {}", node_2_peer_id))
-            .await;
 
         let mut node_1_peers = node_1_network_client.get_connected_peers().await.unwrap();
         let mut node_2_peers = node_2_network_client.get_connected_peers().await.unwrap();

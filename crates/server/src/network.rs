@@ -19,7 +19,7 @@ use tokio::{
     task::yield_now,
     time::{timeout, Duration as TokioDuration},
 };
-use tracing::{error, info, warn};
+use tracing::{error, info, warn, Instrument, Span};
 
 type GossipMessage = Vec<u8>;
 pub(crate) struct NoP;
@@ -253,7 +253,10 @@ impl Network {
             self.dial_bootnode().await;
         }
 
-        tokio::spawn(async move { self.run(req_rx, gossip_msg_tx, stop_rx).await });
+        let span = Span::current();
+        tokio::spawn(
+            async move { self.run(req_rx, gossip_msg_tx, stop_rx).await }.instrument(span),
+        );
 
         Ok(network_client)
     }
@@ -350,9 +353,6 @@ impl Network {
                 Some(request) = req_rx.recv() => self.handle_client_request(request),
                 event = self.swarm.select_next_some() => self.handle_event(event, &gossip_msg_tx).await,
                 _ = stop_rx.changed() => break Ok(()),
-                _ = tokio::time::sleep(TokioDuration::from_secs(1)) => {
-                    info!("connected peers: {:?}", self.swarm.connected_peers().collect::<Vec<&PeerId>>());
-                }
             }
         }
     }
