@@ -258,6 +258,8 @@ impl Network {
             async move { self.run(req_rx, gossip_msg_tx, stop_rx).await }.instrument(span),
         );
 
+        network_client.subscribe("ipfs").await?;
+
         Ok(network_client)
     }
 
@@ -321,7 +323,10 @@ impl Network {
                                     warn!("Find node query yielded no peers");
                                 } else {
                                     for discovered_peer in ok.peers {
-                                        info!("Discovered peer from DHT: {:?}", discovered_peer);
+                                        info!(
+                                            "Discovered peer {} from DHT",
+                                            discovered_peer.peer_id
+                                        );
                                     }
                                     routed = true;
                                 }
@@ -417,14 +422,17 @@ impl Network {
         match event {
             SwarmEvent::Behaviour(BehaviorEvent::Gossipsub(gossipsub::Event::Message {
                 message,
+                propagation_source,
                 ..
-            })) => match gossip_msg_tx.send(message.data) {
-                Ok(_) => {
-                    info!("Gossip message relayed to client");
+            })) => {
+                info!("Gossip message received from {}", propagation_source);
+                match gossip_msg_tx.send(message.data) {
+                    Ok(_) => {
+                        info!("Gossip message relayed to client");
+                    }
+                    Err(err) => error!("Error relaying gossip message to client: {}", err),
                 }
-                Err(err) => error!("Error relaying gossip message to client: {}", err),
-            },
-
+            }
             SwarmEvent::Behaviour(BehaviorEvent::Gossipsub(gossipsub::Event::Subscribed {
                 peer_id,
                 topic,
