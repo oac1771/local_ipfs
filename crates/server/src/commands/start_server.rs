@@ -39,7 +39,7 @@ impl StartServerCmd {
         let server_config = self.handle_args()?;
 
         let server = ServerBuilder::new(server_config)
-            .build(reload_handle)
+            .build(reload_handle, "ipfs")
             .await?;
 
         server.run().await?;

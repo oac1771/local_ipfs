@@ -205,6 +205,23 @@ impl NetworkClient {
         Ok(())
     }
 
+    pub async fn publish(
+        &self,
+        topic: impl Into<String>,
+        msg: Vec<u8>,
+    ) -> Result<(), NetworkError> {
+        let payload = ClientRequestPayload::Publish {
+            topic: topic.into(),
+            msg,
+        };
+
+        let ClientResponse::Publish = self.send_request(payload).await? else {
+            return Err(NetworkError::UnexpectedResponse);
+        };
+
+        Ok(())
+    }
+
     async fn send_request(
         &self,
         payload: ClientRequestPayload,
@@ -238,9 +255,9 @@ impl NetworkClient {
 }
 
 impl Network {
-    pub async fn start(mut self) -> Result<NetworkClient, NetworkError> {
+    pub async fn start(mut self, topic: impl Into<String>) -> Result<NetworkClient, NetworkError> {
         let (req_tx, req_rx) = mpsc::channel::<ClientRequest>(100);
-        let (gossip_msg_tx, _) = broadcast::channel::<GossipMessage>(100);
+        let (gossip_msg_tx, gossip_msg_rx) = broadcast::channel::<GossipMessage>(100);
         let (stop_tx, stop_rx) = watch::channel(());
 
         let network_client = NetworkClient::new(req_tx, gossip_msg_tx.clone(), stop_tx);
@@ -255,10 +272,15 @@ impl Network {
 
         let span = Span::current();
         tokio::spawn(
-            async move { self.run(req_rx, gossip_msg_tx, stop_rx).await }.instrument(span),
+            async move {
+                // Assign in this future so channel remains open
+                let _gossip_msg_rx = gossip_msg_rx;
+                self.run(req_rx, gossip_msg_tx, stop_rx).await
+            }
+            .instrument(span),
         );
 
-        network_client.subscribe("ipfs").await?;
+        network_client.subscribe(topic).await?;
 
         Ok(network_client)
     }

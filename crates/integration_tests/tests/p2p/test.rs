@@ -6,56 +6,52 @@ mod tests {
         network::NetworkClient,
         rpc::Module,
         server::{builder::ServerBuilder, ServerConfig},
-        state::StateClient,
     };
     use std::sync::{Arc, Mutex};
     use tracing::{instrument, Instrument, Span};
     use tracing_subscriber::{reload::Layer, EnvFilter};
 
-    struct ServerRunner<NC, SC> {
+    struct ServerRunner<NC> {
         log_buffer: Arc<Mutex<Vec<u8>>>,
         name: String,
         network_client: NC,
-        state_client: SC,
     }
 
     struct NoNC;
-    struct NoSC;
 
     struct NodeTopology {
-        bootnode: ServerRunner<NetworkClient, StateClient>,
-        nodes: Vec<ServerRunner<NetworkClient, StateClient>>,
+        bootnode: ServerRunner<NetworkClient>,
+        nodes: Vec<ServerRunner<NetworkClient>>,
     }
 
     impl NodeTopology {
-        fn new(bootnode: ServerRunner<NetworkClient, StateClient>) -> Self {
+        fn new(bootnode: ServerRunner<NetworkClient>) -> Self {
             Self {
                 bootnode,
                 nodes: Vec::new(),
             }
         }
 
-        fn add_node(&mut self, node: ServerRunner<NetworkClient, StateClient>) {
+        fn add_node(&mut self, node: ServerRunner<NetworkClient>) {
             self.nodes.push(node);
         }
 
         fn into_nodes(
             self,
         ) -> (
-            ServerRunner<NetworkClient, StateClient>,
-            Vec<ServerRunner<NetworkClient, StateClient>>,
+            ServerRunner<NetworkClient>,
+            Vec<ServerRunner<NetworkClient>>,
         ) {
             (self.bootnode, self.nodes)
         }
     }
 
-    impl ServerRunner<NoNC, NoSC> {
+    impl ServerRunner<NoNC> {
         fn new(log_buffer: Arc<Mutex<Vec<u8>>>, name: impl Into<String>) -> Self {
             Self {
                 log_buffer,
                 name: name.into(),
                 network_client: NoNC,
-                state_client: NoSC,
             }
         }
 
@@ -66,7 +62,8 @@ mod tests {
             network_port: impl Into<String>,
             is_boot_node: bool,
             boot_node_addr: impl Into<String>,
-        ) -> ServerRunner<NetworkClient, StateClient> {
+            topic: impl Into<String>,
+        ) -> ServerRunner<NetworkClient> {
             let config = ServerConfig {
                 port: port.into(),
                 network_port: network_port.into(),
@@ -76,10 +73,12 @@ mod tests {
                 boot_node_addr: boot_node_addr.into(),
             };
             let (_, handle) = Layer::new(EnvFilter::default());
-            let server = ServerBuilder::new(config).build(handle).await.unwrap();
+            let server = ServerBuilder::new(config)
+                .build(handle, topic)
+                .await
+                .unwrap();
 
             let network_client = server.network_client().clone();
-            let state_client = server.state_client().clone();
 
             let span = Span::current();
             let _ = tokio::spawn(server.run().instrument(span));
@@ -88,22 +87,17 @@ mod tests {
                 log_buffer: self.log_buffer,
                 name: self.name,
                 network_client: network_client,
-                state_client: state_client,
             }
         }
     }
 
-    impl ServerRunner<NetworkClient, StateClient> {
+    impl ServerRunner<NetworkClient> {
         fn network_client(&self) -> &NetworkClient {
             &self.network_client
         }
-
-        fn state_client(&self) -> &StateClient {
-            &self.state_client
-        }
     }
 
-    impl<NC, SC> Runner for ServerRunner<NC, SC> {
+    impl<NC> Runner for ServerRunner<NC> {
         fn log_buffer(&self) -> Arc<Mutex<Vec<u8>>> {
             self.log_buffer.clone()
         }
@@ -116,6 +110,7 @@ mod tests {
     async fn setup_test_topolgy(
         additional_nodes: usize,
         log_buffer: Arc<Mutex<Vec<u8>>>,
+        topic: impl Into<String> + std::marker::Copy,
     ) -> NodeTopology {
         let mut rng = rand::thread_rng();
         let port_range = 49152..=65535;
@@ -123,7 +118,7 @@ mod tests {
         let bootnode_network_port = format!("{}", rng.gen_range(port_range.clone()));
 
         let bootnode = ServerRunner::new(log_buffer.clone(), "bootnode")
-            .start(bootnode_port, &bootnode_network_port, true, "")
+            .start(bootnode_port, &bootnode_network_port, true, "", topic)
             .await;
 
         let bootnode_peer_id = bootnode.network_client.get_peer_id().await.unwrap();
@@ -135,7 +130,7 @@ mod tests {
         let node_port = format!("{}", rng.gen_range(port_range.clone()));
         let node_network_port = format!("{}", rng.gen_range(port_range.clone()));
         let node = ServerRunner::new(log_buffer.clone(), "node_1")
-            .start(node_port, node_network_port, false, &boot_node_addr)
+            .start(node_port, node_network_port, false, &boot_node_addr, topic)
             .await;
 
         let mut node_topology = NodeTopology::new(bootnode);
@@ -145,7 +140,7 @@ mod tests {
             let node_port = format!("{}", rng.gen_range(port_range.clone()));
             let node_network_port = format!("{}", rng.gen_range(port_range.clone()));
             let node = ServerRunner::new(log_buffer.clone(), format!("node_{}", index + 1))
-                .start(node_port, node_network_port, false, &boot_node_addr)
+                .start(node_port, node_network_port, false, &boot_node_addr, topic)
                 .await;
             node_topology.add_node(node);
         }
@@ -155,7 +150,7 @@ mod tests {
 
     #[test_macro::test]
     async fn bootstrap_to_bootnode_succeeds(log_buffer: Arc<Mutex<Vec<u8>>>) {
-        let node_topology = setup_test_topolgy(1, log_buffer).await;
+        let node_topology = setup_test_topolgy(1, log_buffer, "topic").await;
         let (bootnode, nodes) = node_topology.into_nodes();
 
         let (node_1, node_2) = match &nodes[..] {
@@ -193,32 +188,50 @@ mod tests {
         );
     }
 
-    // #[test_macro::test]
-    // async fn gossip_message_to_peers(log_buffer: Arc<Mutex<Vec<u8>>>) {
-    //     let bootnode_port = "9998";
-    //     let node_1_port = "8888";
-    //     let node_2_port = "9999";
-    //     let bootnode_network_port = "58763";
+    #[test_macro::test]
+    async fn gossip_message_to_peers(log_buffer: Arc<Mutex<Vec<u8>>>) {
+        let topic = "gossip_topic";
+        let msg = b"hello world".to_vec();
+        let node_topology = setup_test_topolgy(1, log_buffer, topic).await;
+        let (_, nodes) = node_topology.into_nodes();
 
-    //     let bootnode = ServerRunner::new(log_buffer.clone(), "bootnode");
-    //     let node_1 = ServerRunner::new(log_buffer.clone(), "node_1");
-    //     let node_2 = ServerRunner::new(log_buffer.clone(), "node_2");
+        let (node_1, node_2) = match &nodes[..] {
+            [first, second, ..] => (first, second),
+            _ => panic!("Not enough peers"),
+        };
 
-    //     let (bootnode_network_client, _) = bootnode
-    //         .start(bootnode_port, bootnode_network_port, true, "")
-    //         .await;
-    //     let bootnode_peer_id = bootnode_network_client.get_peer_id().await.unwrap();
-    //     let bootnode_addr = format!(
-    //         "/ip4/127.0.0.1/tcp/{}/p2p/{}",
-    //         bootnode_network_port, bootnode_peer_id
-    //     );
+        let node_1_peer_id = node_1.network_client().get_peer_id().await.unwrap();
 
-    //     let (node_1_network_client, _) = node_1
-    //         .start(node_1_port, "0", false, bootnode_addr.clone())
-    //         .await;
-    //     let (node_2_network_client, _) = node_2.start(node_2_port, "0", false, bootnode_addr).await;
+        node_1
+            .assert_info_log_entry(&format!("Subscribed to topic: {}", topic))
+            .await;
+        node_2
+            .assert_info_log_entry(&format!("Subscribed to topic: {}", topic))
+            .await;
 
-    //     let node_1_peer_id = node_1_network_client.get_peer_id().await.unwrap();
-    //     let node_2_peer_id = node_2_network_client.get_peer_id().await.unwrap();
-    // }
+        let mut gossip_receiver = node_2.network_client().gossip_receiver().await;
+
+        node_1
+            .network_client()
+            .publish(topic, msg.clone())
+            .await
+            .unwrap();
+
+        node_1
+            .assert_info_log_entry(&format!(
+                "Successfully published message to {} topic",
+                topic
+            ))
+            .await;
+        node_2
+            .assert_info_log_entry(&format!("Gossip message received from {}", node_1_peer_id))
+            .await;
+        node_2
+            .assert_info_log_entry("Gossip message relayed to client")
+            .await;
+
+        let gossip_msg = gossip_receiver.recv().await.unwrap();
+
+        assert_eq!(gossip_msg, msg.to_vec());
+    }
 }
