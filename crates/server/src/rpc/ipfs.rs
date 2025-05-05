@@ -6,6 +6,7 @@ use crate::{
             IpfsPinResponse, IpfsPinRmResponse, PinAction,
         },
     },
+    network::NetworkClient,
     rpc::error::RpcServeError,
     state::StateClient,
 };
@@ -19,6 +20,7 @@ use reqwest::{
     multipart::{Form, Part},
     Body, Client,
 };
+use serde::{Deserialize, Serialize};
 use serde_json;
 use tracing::{debug, error, info};
 
@@ -28,25 +30,22 @@ pub struct IpfsApi {
     ipfs_base_url: String,
     client: Client,
     state_client: StateClient,
-}
-
-#[derive(thiserror::Error, Debug)]
-enum IpfsApiError {
-    #[error(transparent)]
-    RequestError(#[from] reqwest::Error),
-
-    #[error("Error deserializing http response")]
-    SerdeDeserializeError(#[from] serde_json::Error),
+    network_client: NetworkClient,
 }
 
 impl IpfsApi {
-    pub fn new(ipfs_base_url: impl Into<String>, state_client: StateClient) -> Self {
+    pub fn new(
+        ipfs_base_url: impl Into<String>,
+        state_client: StateClient,
+        network_client: NetworkClient,
+    ) -> Self {
         let client = Client::new();
 
         Self {
             ipfs_base_url: ipfs_base_url.into(),
             client,
             state_client,
+            network_client,
         }
     }
 
@@ -55,6 +54,28 @@ impl IpfsApi {
             Ok(_) => debug!("Saved ipfs hash {} to state", hash),
             Err(err) => error!("Error saving ipfs hash to state: {:?}", err),
         };
+    }
+
+    async fn gossip_add(&self, hash: &str) {
+        let msg = match serde_json::to_vec(&GossipMessage::AddFile {
+            hash: hash.to_string(),
+        }) {
+            Ok(msg) => msg,
+            Err(err) => {
+                error!("Unable to seralize add file gossip message: {}", err);
+                return;
+            }
+        };
+        match self.gossip(msg).await {
+            Ok(_) => info!("Successfully gossiped add file message"),
+            Err(err) => error!("Error while gossiping add file message: {}", err),
+        };
+    }
+
+    async fn gossip(&self, msg: Vec<u8>) -> Result<(), IpfsApiError> {
+        self.network_client.publish(msg).await?;
+
+        Ok(())
     }
 }
 
@@ -143,6 +164,7 @@ impl IpfsServer for IpfsApi {
         info!("added {} to ipfs", response.hash);
 
         self.update_state(&response.hash).await;
+        self.gossip_add(&response.hash).await;
 
         Ok(response)
     }
@@ -176,4 +198,33 @@ impl From<IpfsApi> for Methods {
     fn from(val: IpfsApi) -> Self {
         val.into_rpc().into()
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+enum IpfsApiError {
+    #[error(transparent)]
+    Request(#[from] reqwest::Error),
+
+    #[error(transparent)]
+    Gossip(#[from] crate::network::NetworkError),
+
+    #[error("Error deserializing http response")]
+    SerdeDeserialize(#[from] serde_json::Error),
+}
+
+#[derive(Serialize, Deserialize)]
+enum GossipMessage {
+    AddFile { hash: String },
+}
+
+#[test]
+fn serialization_deserialization_of_gossip_messages() {
+    let initial = "hash".to_string();
+    let msg = serde_json::to_vec(&GossipMessage::AddFile {
+        hash: initial.clone(),
+    })
+    .unwrap();
+    let GossipMessage::AddFile { hash } = serde_json::from_slice::<GossipMessage>(&msg).unwrap();
+
+    assert_eq!(initial, hash);
 }

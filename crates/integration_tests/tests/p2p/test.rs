@@ -211,11 +211,7 @@ mod tests {
 
         let mut gossip_receiver = node_2.network_client().gossip_receiver().await;
 
-        node_1
-            .network_client()
-            .publish(topic, msg.clone())
-            .await
-            .unwrap();
+        node_1.network_client().publish(msg.clone()).await.unwrap();
 
         node_1
             .assert_info_log_entry(&format!(

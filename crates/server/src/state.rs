@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use tokio::{
     select,
     sync::{mpsc, oneshot, watch},
-    time::{sleep, Duration},
+    time::{timeout, Duration},
 };
 
 use tracing::{debug, error, info};
@@ -85,17 +85,15 @@ impl StateClient {
     async fn receive_response(
         receiver: oneshot::Receiver<Result<StateResponse, StateClientError<StateRequest>>>,
     ) -> Result<StateResponse, StateClientError<StateRequest>> {
-        select! {
-            _ = sleep(Duration::from_secs(2)) => {
-                Err(StateClientError::Timeout)
-            },
-            msg = receiver => {
-                match msg {
-                    Ok(resp) => Ok(resp),
-                    Err(err) => Err(err.into())
-                }
+        let duration = Duration::from_secs(2);
+        timeout(duration, async {
+            match receiver.await {
+                Ok(resp) => resp,
+                Err(err) => Err(err.into()),
             }
-        }?
+        })
+        .await
+        .map_err(|_| StateClientError::Timeout)?
     }
 }
 

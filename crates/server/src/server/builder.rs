@@ -42,7 +42,7 @@ impl ServerBuilder {
                 Module::Ipfs => {
                     let ipfs_base_url =
                         var("IPFS_BASE_URL").unwrap_or("http://localhost:5001".into());
-                    IpfsApi::new(ipfs_base_url, state_client.clone()).into()
+                    IpfsApi::new(ipfs_base_url, state_client.clone(), network_client.clone()).into()
                 }
                 Module::Util => UtilApi::new(reload_handle.clone()).into(),
                 Module::Metrics => {

@@ -44,6 +44,7 @@ pub struct NetworkClient {
     req_tx: mpsc::Sender<ClientRequest>,
     gossip_msg_tx: broadcast::Sender<GossipMessage>,
     stop_tx: watch::Sender<()>,
+    topic: String,
 }
 
 impl NetworkBuilder<NoP, NoT, NoA> {
@@ -153,11 +154,13 @@ impl NetworkClient {
         req_tx: mpsc::Sender<ClientRequest>,
         gossip_msg_tx: broadcast::Sender<GossipMessage>,
         stop_tx: watch::Sender<()>,
+        topic: impl Into<String>,
     ) -> Self {
         Self {
             req_tx,
             gossip_msg_tx,
             stop_tx,
+            topic: topic.into(),
         }
     }
 
@@ -194,9 +197,9 @@ impl NetworkClient {
         self.gossip_msg_tx.subscribe()
     }
 
-    pub async fn subscribe(&self, topic: impl Into<String>) -> Result<(), NetworkError> {
+    pub async fn subscribe(&self) -> Result<(), NetworkError> {
         let payload = ClientRequestPayload::Subscribe {
-            topic: topic.into(),
+            topic: self.topic.clone(),
         };
         let ClientResponse::Subscribe = self.send_request(payload).await? else {
             return Err(NetworkError::UnexpectedResponse);
@@ -205,13 +208,9 @@ impl NetworkClient {
         Ok(())
     }
 
-    pub async fn publish(
-        &self,
-        topic: impl Into<String>,
-        msg: Vec<u8>,
-    ) -> Result<(), NetworkError> {
+    pub async fn publish(&self, msg: Vec<u8>) -> Result<(), NetworkError> {
         let payload = ClientRequestPayload::Publish {
-            topic: topic.into(),
+            topic: self.topic.clone(),
             msg,
         };
 
@@ -260,7 +259,7 @@ impl Network {
         let (gossip_msg_tx, gossip_msg_rx) = broadcast::channel::<GossipMessage>(100);
         let (stop_tx, stop_rx) = watch::channel(());
 
-        let network_client = NetworkClient::new(req_tx, gossip_msg_tx.clone(), stop_tx);
+        let network_client = NetworkClient::new(req_tx, gossip_msg_tx.clone(), stop_tx, topic);
 
         self.swarm
             .listen_on(format!("/ip4/0.0.0.0/tcp/{}", self.port).parse()?)?;
@@ -280,7 +279,7 @@ impl Network {
             .instrument(span),
         );
 
-        network_client.subscribe(topic).await?;
+        network_client.subscribe().await?;
 
         Ok(network_client)
     }
