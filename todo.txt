@@ -1,5 +1,6 @@
 server
     - make ipfs module not actually call ipfs in integration tests
+        - might need to wrap reqwest::Client and use mock_all?
     - might need to start a process to handle gossip messages
         - inner struct that can be used in ipfs api and gossip handler 
     - update state once pin rm has been called 

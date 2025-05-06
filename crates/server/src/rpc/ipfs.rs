@@ -26,20 +26,20 @@ use tracing::{debug, error, info};
 
 use super::Call;
 
-pub struct IpfsApi {
+pub struct IpfsApi<C> {
     ipfs_base_url: String,
-    client: Client,
+    client: C,
     state_client: StateClient,
     network_client: NetworkClient,
 }
 
-impl IpfsApi {
+impl IpfsApi<ReqwestClient> {
     pub fn new(
         ipfs_base_url: impl Into<String>,
         state_client: StateClient,
         network_client: NetworkClient,
     ) -> Self {
-        let client = Client::new();
+        let client = ReqwestClient::new();
 
         Self {
             ipfs_base_url: ipfs_base_url.into(),
@@ -48,7 +48,12 @@ impl IpfsApi {
             network_client,
         }
     }
+}
 
+impl<C> IpfsApi<C>
+where
+    C: HttpClient + std::marker::Send + std::marker::Sync + 'static,
+{
     async fn update_state(&self, hash: &str) {
         match self.state_client.add_ipfs_hash(hash.to_string()).await {
             Ok(_) => debug!("Saved ipfs hash {} to state", hash),
@@ -79,14 +84,17 @@ impl IpfsApi {
     }
 }
 
-impl Call for IpfsApi {}
+impl<C> Call for IpfsApi<C> {}
 
 #[async_trait]
-impl IpfsServer for IpfsApi {
+impl<C> IpfsServer for IpfsApi<C>
+where
+    C: HttpClient + std::marker::Send + std::marker::Sync + 'static,
+{
     async fn id(&self) -> RpcResult<IpfsIdResponse> {
         let url = format!("{}{}", self.ipfs_base_url, "/api/v0/id");
-        let request = || async move { self.client.post(url).send().await }.boxed();
-        let response = <IpfsApi as Call>::call::<IpfsIdResponse, IpfsApiError>(request)
+        let request = || async move { self.client.post(url).await }.boxed();
+        let response = <IpfsApi<C> as Call>::call::<IpfsIdResponse, IpfsApiError>(request)
             .await
             .map_err(|err| RpcServeError::Message(err.to_string()))?
             .ok_or_else(|| RpcServeError::Message("Received empty response from ipfs".into()))?;
@@ -98,39 +106,42 @@ impl IpfsServer for IpfsApi {
         let r: IpfsPinResponse = match pin_action {
             PinAction::ls => {
                 let url = format!("{}{}", self.ipfs_base_url, "/api/v0/pin/ls");
-                let request = || async move { self.client.post(url).send().await }.boxed();
-                let response = <IpfsApi as Call>::call::<IpfsPinLsResponse, IpfsApiError>(request)
-                    .await
-                    .map_err(|err| RpcServeError::Message(err.to_string()))?
-                    .ok_or_else(|| {
-                        RpcServeError::Message("Received empty response from ipfs".into())
-                    })?;
+                let request = || async move { self.client.post(url).await }.boxed();
+                let response =
+                    <IpfsApi<C> as Call>::call::<IpfsPinLsResponse, IpfsApiError>(request)
+                        .await
+                        .map_err(|err| RpcServeError::Message(err.to_string()))?
+                        .ok_or_else(|| {
+                            RpcServeError::Message("Received empty response from ipfs".into())
+                        })?;
                 response.into()
             }
             PinAction::add => {
                 let hash =
                     hash.ok_or_else(|| RpcServeError::Message("Hash not supplied".to_string()))?;
                 let url = format!("{}/api/v0/pin/add?arg={}", self.ipfs_base_url, hash);
-                let request = || async move { self.client.post(url).send().await }.boxed();
-                let response = <IpfsApi as Call>::call::<IpfsPinAddResponse, IpfsApiError>(request)
-                    .await
-                    .map_err(|err| RpcServeError::Message(err.to_string()))?
-                    .ok_or_else(|| {
-                        RpcServeError::Message("Received empty response from ipfs".into())
-                    })?;
+                let request = || async move { self.client.post(url).await }.boxed();
+                let response =
+                    <IpfsApi<C> as Call>::call::<IpfsPinAddResponse, IpfsApiError>(request)
+                        .await
+                        .map_err(|err| RpcServeError::Message(err.to_string()))?
+                        .ok_or_else(|| {
+                            RpcServeError::Message("Received empty response from ipfs".into())
+                        })?;
                 response.into()
             }
             PinAction::rm => {
                 let hash =
                     hash.ok_or_else(|| RpcServeError::Message("Hash not supplied".to_string()))?;
                 let url = format!("{}/api/v0/pin/rm?arg={}", self.ipfs_base_url, hash);
-                let request = || async move { self.client.post(url).send().await }.boxed();
-                let response = <IpfsApi as Call>::call::<IpfsPinRmResponse, IpfsApiError>(request)
-                    .await
-                    .map_err(|err| RpcServeError::Message(err.to_string()))?
-                    .ok_or_else(|| {
-                        RpcServeError::Message("Received empty response from ipfs".into())
-                    })?;
+                let request = || async move { self.client.post(url).await }.boxed();
+                let response =
+                    <IpfsApi<C> as Call>::call::<IpfsPinRmResponse, IpfsApiError>(request)
+                        .await
+                        .map_err(|err| RpcServeError::Message(err.to_string()))?
+                        .ok_or_else(|| {
+                            RpcServeError::Message("Received empty response from ipfs".into())
+                        })?;
                 response.into()
             }
         };
@@ -145,18 +156,8 @@ impl IpfsServer for IpfsApi {
         let part = Part::stream(body);
         let form = Form::new().part("file", part);
 
-        let request = || {
-            async move {
-                self.client
-                    .post(url)
-                    .multipart(form)
-                    .header("Content-Type", "application/octet-stream")
-                    .send()
-                    .await
-            }
-            .boxed()
-        };
-        let response = <IpfsApi as Call>::call::<IpfsAddResponse, IpfsApiError>(request)
+        let request = || async move { self.client.post_multipart(url, form).await }.boxed();
+        let response = <IpfsApi<C> as Call>::call::<IpfsAddResponse, IpfsApiError>(request)
             .await
             .map_err(|err| RpcServeError::Message(err.to_string()))?
             .ok_or_else(|| RpcServeError::Message("Received empty response from ipfs".into()))?;
@@ -171,7 +172,7 @@ impl IpfsServer for IpfsApi {
 
     async fn cat(&self, hash: String) -> RpcResult<String> {
         let url = format!("{}/api/v0/cat?arg={}", self.ipfs_base_url, hash);
-        let request = || async move { self.client.post(url).send().await }.boxed();
+        let request = || async move { self.client.post(url).await }.boxed();
         match request().await {
             Err(err) => {
                 error!("{}", err);
@@ -194,9 +195,56 @@ impl IpfsServer for IpfsApi {
     }
 }
 
-impl From<IpfsApi> for Methods {
-    fn from(val: IpfsApi) -> Self {
+impl<C> From<IpfsApi<C>> for Methods
+where
+    C: HttpClient + std::marker::Send + std::marker::Sync + 'static,
+{
+    fn from(val: IpfsApi<C>) -> Self {
         val.into_rpc().into()
+    }
+}
+
+pub struct ReqwestClient {
+    client: Client,
+}
+
+impl ReqwestClient {
+    fn new() -> Self {
+        Self {
+            client: Client::new(),
+        }
+    }
+}
+
+pub trait HttpClient {
+    fn post(
+        &self,
+        url: String,
+    ) -> impl std::future::Future<Output = Result<reqwest::Response, reqwest::Error>> + std::marker::Send;
+
+    fn post_multipart(
+        &self,
+        url: String,
+        form: Form,
+    ) -> impl std::future::Future<Output = Result<reqwest::Response, reqwest::Error>> + std::marker::Send;
+}
+
+impl HttpClient for ReqwestClient {
+    async fn post(&self, url: String) -> Result<reqwest::Response, reqwest::Error> {
+        self.client.post(url).send().await
+    }
+
+    async fn post_multipart(
+        &self,
+        url: String,
+        form: Form,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        self.client
+            .post(url)
+            .multipart(form)
+            .header("Content-Type", "application/octet-stream")
+            .send()
+            .await
     }
 }
 
