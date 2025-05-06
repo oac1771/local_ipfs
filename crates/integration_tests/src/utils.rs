@@ -42,9 +42,7 @@ pub trait Runner {
 
     fn log_output(&self) -> String {
         let logs = self.get_logs();
-        let output = serde_json::to_string_pretty(&logs.collect::<Vec<Log>>()).unwrap();
-
-        output
+        serde_json::to_string_pretty(&logs.collect::<Vec<Log>>()).unwrap()
     }
 
     async fn assert_info_log_entry(&self, entry: &str) {
@@ -75,7 +73,10 @@ pub trait Runner {
         };
 
         let duration = Duration::from_secs(2);
-        if let Err(_) = timeout(duration, self.parse_logs(predicate, level)).await {
+        if timeout(duration, self.parse_logs(predicate, level))
+            .await
+            .is_err()
+        {
             let output = self.log_output();
             panic!("Logs: {}\nFailed to find log entry: {}", output, entry)
         }
@@ -84,7 +85,7 @@ pub trait Runner {
     async fn parse_logs(&self, predicate: Box<dyn Fn(&String) -> bool>, level: tracing::Level) {
         let mut logs: Vec<Log> = vec![];
 
-        while logs.len() == 0 {
+        while logs.is_empty() {
             logs = self
                 .get_logs()
                 .filter(|log| log.level() == level.as_str())

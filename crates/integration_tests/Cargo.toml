@@ -15,9 +15,8 @@ serde_json = { workspace = true }
 test_macro = { path = "./test_macro" }
 server = { path = "../server" }
 
-
 [features]
-integration_tests = []
+mock-ipfs = ["server/mock-ipfs"]
 
 [[test]]
 name = "p2p"

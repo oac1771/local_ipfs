@@ -33,6 +33,7 @@ pub struct IpfsApi<C> {
     network_client: NetworkClient,
 }
 
+#[cfg(not(feature = "mock-ipfs"))]
 impl IpfsApi<ReqwestClient> {
     pub fn new(
         ipfs_base_url: impl Into<String>,
@@ -265,14 +266,67 @@ enum GossipMessage {
     AddFile { hash: String },
 }
 
-#[test]
-fn serialization_deserialization_of_gossip_messages() {
-    let initial = "hash".to_string();
-    let msg = serde_json::to_vec(&GossipMessage::AddFile {
-        hash: initial.clone(),
-    })
-    .unwrap();
-    let GossipMessage::AddFile { hash } = serde_json::from_slice::<GossipMessage>(&msg).unwrap();
+#[cfg(feature = "mock-ipfs")]
+mod mock_ipfs {
+    use super::*;
+    use http::response::Builder;
+    use reqwest::Response;
 
-    assert_eq!(initial, hash);
+    pub struct MockRequestClient;
+
+    fn build_response() -> Result<reqwest::Response, reqwest::Error> {
+        let response = Builder::new().status(200).body("foo").unwrap();
+        let response = Response::from(response);
+
+        Ok(response)
+    }
+
+    impl IpfsApi<MockRequestClient> {
+        pub fn new(
+            ipfs_base_url: impl Into<String>,
+            state_client: StateClient,
+            network_client: NetworkClient,
+        ) -> Self {
+            let client = MockRequestClient;
+
+            Self {
+                ipfs_base_url: ipfs_base_url.into(),
+                client,
+                state_client,
+                network_client,
+            }
+        }
+    }
+
+    impl HttpClient for MockRequestClient {
+        async fn post(&self, _url: String) -> Result<reqwest::Response, reqwest::Error> {
+            build_response()
+        }
+
+        async fn post_multipart(
+            &self,
+            _url: String,
+            _form: Form,
+        ) -> Result<reqwest::Response, reqwest::Error> {
+            build_response()
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn serialization_deserialization_of_gossip_messages() {
+        let initial = "hash".to_string();
+        let msg = serde_json::to_vec(&GossipMessage::AddFile {
+            hash: initial.clone(),
+        })
+        .unwrap();
+        let GossipMessage::AddFile { hash } =
+            serde_json::from_slice::<GossipMessage>(&msg).unwrap();
+
+        assert_eq!(initial, hash);
+    }
 }

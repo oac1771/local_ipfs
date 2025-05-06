@@ -40,5 +40,5 @@ docker compose -f docker/compose.yaml down
 
 [tasks.p2p-integration-tests]
 script='''
-cargo test -p integration_tests --test p2p --features integration_tests
+cargo test -p integration_tests --test p2p --features mock-ipfs
 '''

@@ -1,4 +1,4 @@
-#[cfg(feature = "integration_tests")]
+#[cfg(test)]
 mod tests {
     use integration_tests::utils::{Log, Runner};
     use rand::Rng;
@@ -68,7 +68,7 @@ mod tests {
                 port: port.into(),
                 network_port: network_port.into(),
                 ip: "0.0.0.0".into(),
-                modules: vec![Module::Util],
+                modules: vec![Module::Util, Module::Ipfs],
                 is_boot_node,
                 boot_node_addr: boot_node_addr.into(),
             };
