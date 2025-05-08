@@ -271,14 +271,20 @@ mod mock_ipfs {
     use super::*;
     use http::response::Builder;
     use reqwest::Response;
+    use std::collections::HashMap;
 
-    pub struct MockRequestClient;
+    pub struct MockRequestClient {
+        responses: HashMap<String, String>,
+    }
 
-    fn build_response() -> Result<reqwest::Response, reqwest::Error> {
-        let response = Builder::new().status(200).body("foo").unwrap();
-        let response = Response::from(response);
+    impl MockRequestClient {
+        fn build_response(&self, url: String) -> Result<reqwest::Response, reqwest::Error> {
+            let body = self.responses.get(&url).unwrap().clone();
+            let response = Builder::new().status(200).body(body).unwrap();
+            let response = Response::from(response);
 
-        Ok(response)
+            Ok(response)
+        }
     }
 
     impl IpfsApi<MockRequestClient> {
@@ -287,7 +293,9 @@ mod mock_ipfs {
             state_client: StateClient,
             network_client: NetworkClient,
         ) -> Self {
-            let client = MockRequestClient;
+            let client = MockRequestClient {
+                responses: Self::build_responses(),
+            };
 
             Self {
                 ipfs_base_url: ipfs_base_url.into(),
@@ -296,19 +304,23 @@ mod mock_ipfs {
                 network_client,
             }
         }
+
+        fn build_responses() -> HashMap<String, String> {
+            HashMap::new()
+        }
     }
 
     impl HttpClient for MockRequestClient {
-        async fn post(&self, _url: String) -> Result<reqwest::Response, reqwest::Error> {
-            build_response()
+        async fn post(&self, url: String) -> Result<reqwest::Response, reqwest::Error> {
+            self.build_response(url)
         }
 
         async fn post_multipart(
             &self,
-            _url: String,
+            url: String,
             _form: Form,
         ) -> Result<reqwest::Response, reqwest::Error> {
-            build_response()
+            self.build_response(url)
         }
     }
 }

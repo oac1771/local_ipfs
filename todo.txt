@@ -1,8 +1,15 @@
 server
-    - make ipfs module not actually call ipfs in integration tests
-        - might need to wrap reqwest::Client and use mock_all?
-    - might need to start a process to handle gossip messages
-        - inner struct that can be used in ipfs api and gossip handler 
+
+    - test for ipfs add_file gossip message
+        - need client to simute cli command in serverrunner
+        - make buildrespone() in mock take url and decide correct response body
+            - could make mockrequest client be hashmap that maps url to payload
+            - buildresponse a struct method 
+
+    - network start could be outside of starting server in different process since those two things should not be linked
+        - might need to start a process to handle gossip messages
+            - inner struct that can be used in ipfs api and gossip handler 
+
     - update state once pin rm has been called 
         - should gossip this to other nodes
     - look into gossiping so changes can propogate over the network 

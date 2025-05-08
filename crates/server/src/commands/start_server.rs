@@ -39,7 +39,7 @@ impl StartServerCmd {
         let server_config = self.handle_args()?;
 
         let server = ServerBuilder::new(server_config)
-            .build(reload_handle, "ipfs")
+            .build(reload_handle)
             .await?;
 
         server.run().await?;
@@ -76,6 +76,7 @@ impl StartServerCmd {
             boot_node_addr: self.boot_node_addr,
             is_boot_node: self.is_boot_node,
             modules,
+            topic: String::from("ipfs"),
         };
 
         Ok(config)

@@ -24,7 +24,6 @@ impl ServerBuilder {
     pub async fn build(
         self,
         reload_handle: Handle<EnvFilter, Registry>,
-        topic: impl Into<String>,
     ) -> Result<Server, ServerError> {
         let mut rpc_module = RpcModule::new(());
         let state = State::new();
@@ -35,7 +34,7 @@ impl ServerBuilder {
             .build()?;
 
         let state_client = state.start();
-        let network_client = network.start(topic).await?;
+        let network_client = network.start(self.config.topic).await?;
 
         let result = self.config.modules.iter().try_for_each(|m| {
             let methods: Methods = match m {

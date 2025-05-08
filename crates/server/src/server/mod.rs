@@ -16,6 +16,7 @@ pub struct ServerConfig {
     pub modules: Vec<Module>,
     pub boot_node_addr: String,
     pub is_boot_node: bool,
+    pub topic: String,
 }
 
 pub struct Server {
