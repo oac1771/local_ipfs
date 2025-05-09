@@ -240,6 +240,8 @@ impl HttpClient for ReqwestClient {
         url: String,
         form: Form,
     ) -> Result<reqwest::Response, reqwest::Error> {
+        // let foo: std::collections::HashMap<u8, String> = std::collections::HashMap::new();
+        // let bar = foo.iter().find(|(x, y)| "foo".contains(y.as_str())).unwrap();
         self.client
             .post(url)
             .multipart(form)
@@ -279,8 +281,12 @@ mod mock_ipfs {
 
     impl MockRequestClient {
         fn build_response(&self, url: String) -> Result<reqwest::Response, reqwest::Error> {
-            let body = self.responses.get(&url).unwrap().clone();
-            let response = Builder::new().status(200).body(body).unwrap();
+            let (_, body) = self
+                .responses
+                .iter()
+                .find(|(stored_url, _)| url.contains(stored_url.as_str()))
+                .unwrap();
+            let response = Builder::new().status(200).body(body.clone()).unwrap();
             let response = Response::from(response);
 
             Ok(response)

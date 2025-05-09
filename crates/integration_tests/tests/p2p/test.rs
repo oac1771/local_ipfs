@@ -300,6 +300,6 @@ mod tests {
             .assert_info_log_entry(&format!("Subscribed to topic: {}", topic))
             .await;
 
-        let foo = node_1.server_client.add(data).await.unwrap();
+        let _foo = node_1.server_client.add(data).await.unwrap();
     }
 }
