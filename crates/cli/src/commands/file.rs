@@ -1,6 +1,9 @@
 use clap::{Parser, Subcommand};
 use jsonrpsee::async_client::Client;
-use server::api::{ipfs::IpfsClient, types::ipfs::PinAction};
+use server::api::{
+    ipfs::IpfsClient,
+    types::ipfs::{IpfsPinResponse, PinAction},
+};
 use std::{fmt::Debug, path::Path};
 use tokio::{fs::File, io::AsyncReadExt};
 
@@ -30,7 +33,21 @@ enum Command {
         file_path: Option<String>,
     },
 
-    Remove {
+    #[command(subcommand)]
+    Pin(Pin),
+}
+
+#[derive(Subcommand, Debug)]
+enum Pin {
+    Ls,
+    Rm {
+        #[arg(long)]
+        hash: Option<String>,
+
+        #[arg(long)]
+        file_path: Option<String>,
+    },
+    Add {
         #[arg(long)]
         hash: Option<String>,
 
@@ -44,9 +61,7 @@ impl FileCommand {
         match self.command {
             Command::Add { ref file_path } => Self::add(&client, file_path, config).await?,
             Command::Get { hash, file_path } => Self::get(&client, config, hash, file_path).await?,
-            Command::Remove { hash, file_path } => {
-                Self::remove(&client, config, hash, file_path).await?
-            }
+            Command::Pin(pin) => Self::pin(&client, config, pin).await?,
         };
 
         Ok(())
@@ -99,21 +114,55 @@ impl FileCommand {
         Ok(())
     }
 
-    async fn remove<H>(
+    async fn pin(client: &Client, config: &mut Config, pin: Pin) -> Result<(), CommandError> {
+        let pin_response = match pin {
+            Pin::Ls => Self::pin_ls(client).await?,
+            Pin::Add { hash, file_path } => Self::pin_add(client, config, hash, file_path).await?,
+            Pin::Rm { hash, file_path } => Self::pin_rm(client, config, hash, file_path).await?,
+        };
+
+        match pin_response {
+            IpfsPinResponse::Add(r) => println!("Pin Added: {:?}", r.pins),
+            IpfsPinResponse::Rm(r) => println!("Pin removed: {:?}", r.pins),
+            IpfsPinResponse::Ls(r) => println!("Pins: {}", r.keys),
+        }
+        Ok(())
+    }
+
+    async fn pin_ls(client: &Client) -> Result<IpfsPinResponse, CommandError> {
+        let response = client.pin(PinAction::ls, None).await?;
+        Ok(response)
+    }
+
+    async fn pin_add<H>(
+        client: &Client,
+        config: &Config,
+        hash: Option<H>,
+        file_path: Option<H>,
+    ) -> Result<IpfsPinResponse, CommandError>
+    where
+        H: Into<String>,
+    {
+        let hash = Self::handle_file_args(config, hash, file_path)?;
+        let response = client.pin(PinAction::add, Some(hash)).await?;
+
+        Ok(response)
+    }
+
+    async fn pin_rm<H>(
         client: &Client,
         config: &mut Config,
         hash: Option<H>,
         file_path: Option<H>,
-    ) -> Result<(), CommandError>
+    ) -> Result<IpfsPinResponse, CommandError>
     where
-        H: Into<String> + Debug + std::clone::Clone,
+        H: Into<String>,
     {
         let hash = Self::handle_file_args(config, hash, file_path)?;
-
         config.remove_hash(&hash);
-        let _ = client.pin(PinAction::rm, Some(hash)).await?;
+        let response = client.pin(PinAction::rm, Some(hash)).await?;
 
-        Ok(())
+        Ok(response)
     }
 
     fn handle_file_args<H>(

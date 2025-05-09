@@ -35,13 +35,16 @@ impl UtilCommand {
     }
 
     async fn ping(&self, client: &Client) -> Result<(), CommandError> {
-        let pong = client.ping().await?;
-        let ipfs_id = client.id().await?;
-        let metrics_response = client.check_status().await?;
+        if let Ok(pong) = client.ping().await {
+            println!("Server Response: {:?}", pong)
+        }
+        if let Ok(ipfs_id) = client.id().await {
+            println!("Ipfs Response: {:?}", ipfs_id);
+        }
+        if let Ok(metrics_response) = client.check_status().await {
+            println!("Metrics process Response: {}", metrics_response);
+        }
 
-        println!("Server Response: {:?}", pong);
-        println!("Ipfs Response: {:?}", ipfs_id);
-        println!("Metrics process Response: {}", metrics_response);
         Ok(())
     }
 

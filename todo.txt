@@ -21,5 +21,6 @@ cli
         - would need server image to be in remote public registry
 
 refactor:
+    - state_client could be dht table from kadmelia so each node can be stateless
     - create a response type channel for when state and network exit out of their loop {select!{}} so
         you can join!{} on those handles and make sure the cleanup happens

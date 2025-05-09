@@ -56,8 +56,8 @@ pub mod ipfs {
 
     #[derive(Serialize, Deserialize, Clone, Debug)]
     pub struct IpfsPinAddResponse {
-        #[serde(alias = "Keys")]
-        pub keys: Value,
+        #[serde(alias = "Pins")]
+        pub pins: Vec<String>,
     }
 
     #[derive(Serialize, Deserialize, Clone, Debug)]

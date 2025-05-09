@@ -55,7 +55,7 @@ impl Config {
         Ok(key)
     }
 
-    pub fn hash<S: Into<String>>(&self, file_path: S) -> Result<&String, CommandError> {
+    pub fn hash<S: Into<String>>(&self, file_path: S) -> Result<&str, CommandError> {
         let file_path: String = file_path.into();
         let hash = self
             .hashes

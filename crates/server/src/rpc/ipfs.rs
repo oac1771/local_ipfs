@@ -289,24 +289,80 @@ mod mock_ipfs {
 
     impl IpfsApi<MockRequestClient> {
         pub fn new(
-            ipfs_base_url: impl Into<String>,
+            ipfs_base_url: String,
             state_client: StateClient,
             network_client: NetworkClient,
         ) -> Self {
             let client = MockRequestClient {
-                responses: Self::build_responses(),
+                responses: Self::build_responses(ipfs_base_url.as_str()),
             };
 
             Self {
-                ipfs_base_url: ipfs_base_url.into(),
+                ipfs_base_url: ipfs_base_url,
                 client,
                 state_client,
                 network_client,
             }
         }
 
-        fn build_responses() -> HashMap<String, String> {
-            HashMap::new()
+        fn build_responses(ipfs_base_url: &str) -> HashMap<String, String> {
+            let mut responses = HashMap::new();
+            let ipfs_id_response = IpfsIdResponse {
+                id: "12D3KooWGaDT5BxsWnaqtkh7iTnpcEUtijzwR6FpuVnGFeA6kSB9".to_string(),
+            };
+
+            let ipfs_pin_ls_response = IpfsPinLsResponse {
+                keys: serde_json::json!({
+                    "QmPAq3VfMBd6Sd7Fv3DtGDfNjSAt82JrMiwft5jtJwqKZ2": {
+                        "Type": "recursive",
+                        "Name": ""
+                    },
+                        "QmPWUHJZiCuWZaYJxLmAmY5yeL6caF9kmQvHUX4iSLxzJ2": {
+                        "Type": "recursive",
+                        "Name": ""
+                    }
+                }),
+            };
+
+            let ipfs_pin_add_response = IpfsPinAddResponse {
+                pins: vec!["QmcurmkpXB4rDeQ7tVdQ3ss413YWEhCgskbL46yMmgB8wu".to_string()],
+            };
+
+            let ipfs_pin_rm_response = IpfsPinRmResponse {
+                pins: vec!["QmcurmkpXB4rDeQ7tVdQ3ss413YWEhCgskbL46yMmgB8wu".to_string()],
+            };
+
+            let ipfs_add_response = IpfsAddResponse {
+                hash: "QmRgUFjmHJ5nFVCJnCtcVtRhJy87Rc4gyJ3iCK4WWbVUDa".to_string(),
+                name: "QmRgUFjmHJ5nFVCJnCtcVtRhJy87Rc4gyJ3iCK4WWbVUDa".to_string(),
+            };
+
+            responses.insert(
+                format!("{}/api/v0/id", ipfs_base_url),
+                serde_json::to_string(&ipfs_id_response).unwrap(),
+            );
+            responses.insert(
+                format!("{}/api/v0/pin/ls", ipfs_base_url),
+                serde_json::to_string(&ipfs_pin_ls_response).unwrap(),
+            );
+            responses.insert(
+                format!("{}/api/v0/pin/add?arg=", ipfs_base_url),
+                serde_json::to_string(&ipfs_pin_add_response).unwrap(),
+            );
+            responses.insert(
+                format!("{}/api/v0/pin/rm?arg=", ipfs_base_url),
+                serde_json::to_string(&ipfs_pin_rm_response).unwrap(),
+            );
+            responses.insert(
+                format!("{}/api/v0/add", ipfs_base_url),
+                serde_json::to_string(&ipfs_add_response).unwrap(),
+            );
+            responses.insert(
+                format!("{}/api/v0/cat?arg=", ipfs_base_url),
+                "Text from a file!".into(),
+            );
+
+            responses
         }
     }
 
