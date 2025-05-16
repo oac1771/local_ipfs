@@ -240,8 +240,6 @@ impl HttpClient for ReqwestClient {
         url: String,
         form: Form,
     ) -> Result<reqwest::Response, reqwest::Error> {
-        // let foo: std::collections::HashMap<u8, String> = std::collections::HashMap::new();
-        // let bar = foo.iter().find(|(x, y)| "foo".contains(y.as_str())).unwrap();
         self.client
             .post(url)
             .multipart(form)

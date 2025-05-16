@@ -81,6 +81,7 @@ mod tests {
 
         #[instrument(skip_all, fields(label = %self.name))]
         async fn start(self) -> ServerRunner {
+            let span = Span::current();
             let server_port = self.server_config.port.clone();
 
             let (_, handle) = Layer::new(EnvFilter::default());
@@ -91,7 +92,6 @@ mod tests {
 
             let network_client = server.network_client().clone();
 
-            let span = Span::current();
             let _ = tokio::spawn(server.run().instrument(span));
 
             let server_url = format!("ws://localhost:{}", server_port);
@@ -122,7 +122,11 @@ mod tests {
         }
 
         fn log_filter(&self, log: &Log) -> bool {
-            log.label() == self.name
+            log.label() == self.name()
+        }
+
+        fn name(&self) -> &str {
+            &self.name
         }
     }
 
@@ -291,7 +295,7 @@ mod tests {
             _ => panic!("Not enough peers"),
         };
 
-        let _node_1_peer_id = node_1.network_client().get_peer_id().await.unwrap();
+        // let _node_1_peer_id = node_1.network_client().get_peer_id().await.unwrap();
 
         node_1
             .assert_info_log_entry(&format!("Subscribed to topic: {}", topic))
@@ -300,6 +304,14 @@ mod tests {
             .assert_info_log_entry(&format!("Subscribed to topic: {}", topic))
             .await;
 
-        let _foo = node_1.server_client.add(data).await.unwrap();
+        node_1.server_client.add(data).await.unwrap();
+
+        node_1
+            .assert_info_log_entry(&format!(
+                "Successfully published message to {} topic",
+                topic
+            ))
+            .await;
+        // "Successfully published message to
     }
 }

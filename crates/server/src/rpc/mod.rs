@@ -31,8 +31,6 @@ trait Call {
                 let resp = response.error_for_status()?;
                 let body = resp.text().await?;
 
-                tracing::info!("{}", body);
-
                 if body.trim().is_empty() {
                     Ok(None)
                 } else {
