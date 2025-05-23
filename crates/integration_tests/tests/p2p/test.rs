@@ -295,6 +295,8 @@ mod tests {
             _ => panic!("Not enough peers"),
         };
 
+        let node_1_peer_id = node_1.network_client().get_peer_id().await.unwrap();
+
         node_1
             .assert_info_log_entry(&format!("Subscribed to topic: {}", topic))
             .await;
@@ -312,7 +314,7 @@ mod tests {
             .await;
 
         node_2
-            .assert_info_log_contains("Gossip message received from")
+            .assert_info_log_contains(&format!("Gossip message received from {}", node_1_peer_id))
             .await;
         node_2
             .assert_info_log_entry("Gossip message relayed to client")
