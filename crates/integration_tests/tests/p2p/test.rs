@@ -6,6 +6,7 @@ mod tests {
     use rand::Rng;
     use server::{
         api::ipfs::IpfsClient,
+        network::NetworkBuilder,
         network::NetworkClient,
         rpc::Module,
         server::{builder::ServerBuilder, ServerConfig},
@@ -85,8 +86,16 @@ mod tests {
             let server_port = self.server_config.port.clone();
 
             let (_, handle) = Layer::new(EnvFilter::default());
+            let network = NetworkBuilder::new()
+                .with_port(&self.server_config.network_port)
+                .with_is_boot_node(self.server_config.is_boot_node)
+                .with_boot_addr(&self.server_config.boot_node_addr)
+                .build()
+                .unwrap();
+
+            let network_client = network.start(&self.server_config.topic).await.unwrap();
             let server = ServerBuilder::new(self.server_config)
-                .build(handle)
+                .build(handle, network_client)
                 .await
                 .unwrap();
 

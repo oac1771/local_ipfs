@@ -1,6 +1,6 @@
 use super::{Server, ServerConfig, ServerError};
 use crate::{
-    network::NetworkBuilder,
+    network::NetworkClient,
     rpc::{ipfs::IpfsApi, metrics::MetricsApi, util::UtilApi, Module},
     state::State,
 };
@@ -24,17 +24,12 @@ impl ServerBuilder {
     pub async fn build(
         self,
         reload_handle: Handle<EnvFilter, Registry>,
+        network_client: NetworkClient,
     ) -> Result<Server, ServerError> {
         let mut rpc_module = RpcModule::new(());
-        let state = State::new();
-        let network = NetworkBuilder::new()
-            .with_port(self.config.network_port)
-            .with_is_boot_node(self.config.is_boot_node)
-            .with_boot_addr(self.config.boot_node_addr)
-            .build()?;
 
+        let state = State::new();
         let state_client = state.start();
-        let network_client = network.start(self.config.topic).await?;
 
         let result = self.config.modules.iter().try_for_each(|m| {
             let methods: Methods = match m {

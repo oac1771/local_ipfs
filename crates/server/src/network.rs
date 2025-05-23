@@ -22,9 +22,9 @@ use tokio::{
 use tracing::{error, info, warn, Instrument, Span};
 
 type GossipMessage = Vec<u8>;
-pub(crate) struct NoP;
-pub(crate) struct NoT;
-pub(crate) struct NoA;
+pub struct NoP;
+pub struct NoT;
+pub struct NoA;
 
 pub struct NetworkBuilder<P, T, A> {
     port: P,

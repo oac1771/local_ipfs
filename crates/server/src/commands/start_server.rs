@@ -1,4 +1,5 @@
 use crate::{
+    network::NetworkBuilder,
     rpc::Module,
     server::{builder::ServerBuilder, ServerConfig},
 };
@@ -38,8 +39,16 @@ impl StartServerCmd {
     ) -> Result<(), CommandError> {
         let server_config = self.handle_args()?;
 
+        let network = NetworkBuilder::new()
+            .with_port(&server_config.network_port)
+            .with_is_boot_node(server_config.is_boot_node)
+            .with_boot_addr(&server_config.boot_node_addr)
+            .build()?;
+
+        let network_client = network.start(&server_config.topic).await?;
+
         let server = ServerBuilder::new(server_config)
-            .build(reload_handle)
+            .build(reload_handle, network_client)
             .await?;
 
         server.run().await?;

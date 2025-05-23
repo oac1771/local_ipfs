@@ -18,6 +18,12 @@ pub enum CommandError {
         source: std::io::Error,
     },
 
+    #[error("{source}")]
+    Network {
+        #[from]
+        source: crate::network::NetworkError,
+    },
+
     #[error("{0}")]
     Arg(String),
 }
