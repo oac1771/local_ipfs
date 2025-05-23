@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Deserializer;
 use std::{
-    io::{Cursor, Write},
+    io::{BufRead, BufReader, Cursor, Write},
     sync::{Arc, Mutex},
 };
 use tokio::time::{sleep, timeout, Duration};
@@ -34,12 +33,20 @@ pub trait Runner {
         let log_buffer = self.log_buffer();
         let buffer = log_buffer.lock().unwrap();
         let log_output = String::from_utf8(buffer.clone()).unwrap();
-        let cursor = Cursor::new(log_output);
-        let logs = Deserializer::from_reader(cursor.clone())
-            .into_iter::<Log>()
-            .filter_map(|log| log.ok());
 
-        logs
+        let cursor = Cursor::new(log_output);
+        let reader = BufReader::new(cursor);
+
+        reader.lines().filter_map(|l| {
+            if let Ok(l) = l {
+                match serde_json::from_str::<Log>(&l) {
+                    Ok(log) => Some(log),
+                    Err(_) => None,
+                }
+            } else {
+                None
+            }
+        })
     }
 
     fn log_output(&self) -> String {
@@ -74,7 +81,7 @@ pub trait Runner {
             }
         };
 
-        let duration = Duration::from_secs(5);
+        let duration = Duration::from_secs(2);
         if timeout(duration, self.parse_logs(predicate, level))
             .await
             .is_err()
@@ -82,10 +89,12 @@ pub trait Runner {
             let log_buffer = self.log_buffer();
             let buffer = log_buffer.lock().unwrap();
             let log_output = String::from_utf8(buffer.clone()).unwrap();
-            panic!("Logs: {}\nFailed to find log entry for {}: {}", log_output, self.name() ,entry);
-
-            // let output = self.log_output();
-            // panic!("Logs: {}\nFailed to find log entry: {}", output, entry)
+            panic!(
+                "Logs: {}\nFailed to find log entry for {}: {}",
+                log_output,
+                self.name(),
+                entry
+            );
         }
     }
 
