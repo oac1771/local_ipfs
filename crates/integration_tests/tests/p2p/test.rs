@@ -9,7 +9,8 @@ mod tests {
         network::NetworkBuilder,
         network::NetworkClient,
         rpc::Module,
-        server::{builder::ServerBuilder, ServerConfig},
+        server::{builder::ServerBuilder, Server, ServerConfig},
+        state::State,
     };
     use std::{
         sync::{Arc, Mutex},
@@ -92,16 +93,25 @@ mod tests {
                 .with_boot_addr(&self.server_config.boot_node_addr)
                 .build()
                 .unwrap();
+            let state = State::new();
 
             let network_client = network.start(&self.server_config.topic).await.unwrap();
+            let state_client = state.start();
+
             let server = ServerBuilder::new(self.server_config)
-                .build(handle, network_client)
+                .build(handle, network_client.clone(), state_client.clone())
                 .await
                 .unwrap();
 
-            let network_client = server.network_client().clone();
+            let _ = tokio::spawn({
+                let network_client = network_client.clone();
+                let state_client = state_client.clone();
 
-            let _ = tokio::spawn(server.run().instrument(span));
+                async move {
+                    let server_handle = server.run().instrument(span).await.unwrap();
+                    Server::wait(&network_client, &state_client, server_handle).await;
+                }
+            });
 
             let server_url = format!("ws://localhost:{}", server_port);
             let server_client = WsClientBuilder::default()

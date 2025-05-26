@@ -5,7 +5,10 @@ use crate::{
     rpc::Module,
     state::StateClient,
 };
-use jsonrpsee::{server::ServerBuilder as JosnRpseeServerBuilder, RpcModule};
+use jsonrpsee::{
+    server::{ServerBuilder as JosnRpseeServerBuilder, ServerHandle},
+    RpcModule,
+};
 use tokio::{select, signal::ctrl_c};
 use tracing::{error, info};
 
@@ -23,38 +26,36 @@ pub struct Server {
     rpc_module: RpcModule<()>,
     port: String,
     ip: String,
-    state_client: StateClient,
-    network_client: NetworkClient,
 }
 
 impl Server {
-    pub fn new(
-        rpc_module: RpcModule<()>,
-        port: String,
-        ip: String,
-        state_client: StateClient,
-        network_client: NetworkClient,
-    ) -> Self {
+    pub fn new(rpc_module: RpcModule<()>, port: String, ip: String) -> Self {
         Self {
             rpc_module,
             port,
             ip,
-            state_client,
-            network_client,
         }
     }
 
-    pub async fn run(self) -> Result<(), ServerError> {
+    pub async fn run(self) -> Result<ServerHandle, ServerError> {
         let addr = format!("{0}:{1}", self.ip, self.port);
         info!("Starting Server on: {}", addr);
         let server = JosnRpseeServerBuilder::default().build(&addr).await?;
 
         let server_handle = server.start(self.rpc_module);
 
+        Ok(server_handle)
+    }
+
+    pub async fn wait(
+        network_client: &NetworkClient,
+        state_client: &StateClient,
+        server_handle: ServerHandle,
+    ) {
         select! {
             _ = server_handle.clone().stopped() => {},
-            _ = self.state_client.clone().stopped() => {},
-            _ = self.network_client.clone().stopped() => {},
+            _ = state_client.stopped() => {},
+            _ = network_client.stopped() => {},
             _ = ctrl_c() => {}
         };
 
@@ -63,23 +64,13 @@ impl Server {
             error!("Error while stoping server: {}", err);
         };
 
-        if let Err(err) = self.state_client.stop() {
+        if let Err(err) = state_client.stop() {
             error!("Error while stoping state: {}", err);
         };
 
-        if let Err(err) = self.network_client.stop() {
+        if let Err(err) = network_client.stop() {
             error!("Error while stoping network: {}", err);
         };
-
-        Ok(())
-    }
-
-    pub fn network_client(&self) -> &NetworkClient {
-        &self.network_client
-    }
-
-    pub fn state_client(&self) -> &StateClient {
-        &self.state_client
     }
 }
 

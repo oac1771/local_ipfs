@@ -2,7 +2,7 @@ use super::{Server, ServerConfig, ServerError};
 use crate::{
     network::NetworkClient,
     rpc::{ipfs::IpfsApi, metrics::MetricsApi, util::UtilApi, Module},
-    state::State,
+    state::StateClient,
 };
 use std::{env::var, ops::ControlFlow};
 
@@ -25,11 +25,9 @@ impl ServerBuilder {
         self,
         reload_handle: Handle<EnvFilter, Registry>,
         network_client: NetworkClient,
+        state_client: StateClient,
     ) -> Result<Server, ServerError> {
         let mut rpc_module = RpcModule::new(());
-
-        let state = State::new();
-        let state_client = state.start();
 
         let result = self.config.modules.iter().try_for_each(|m| {
             let methods: Methods = match m {
@@ -54,13 +52,7 @@ impl ServerBuilder {
         match result {
             ControlFlow::Continue(()) => {
                 info!("Configured server with modules: {:?}", self.config.modules);
-                Ok(Server::new(
-                    rpc_module,
-                    self.config.port,
-                    self.config.ip,
-                    state_client,
-                    network_client,
-                ))
+                Ok(Server::new(rpc_module, self.config.port, self.config.ip))
             }
             ControlFlow::Break(err) => Err(err.into()),
         }

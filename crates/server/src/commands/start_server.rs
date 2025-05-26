@@ -1,7 +1,8 @@
 use crate::{
     network::NetworkBuilder,
     rpc::Module,
-    server::{builder::ServerBuilder, ServerConfig},
+    server::{builder::ServerBuilder, Server, ServerConfig},
+    state::State,
 };
 use clap::Parser;
 use tracing_subscriber::{reload::Handle, EnvFilter, Registry};
@@ -44,14 +45,17 @@ impl StartServerCmd {
             .with_is_boot_node(server_config.is_boot_node)
             .with_boot_addr(&server_config.boot_node_addr)
             .build()?;
+        let state = State::new();
 
         let network_client = network.start(&server_config.topic).await?;
+        let state_client = state.start();
 
         let server = ServerBuilder::new(server_config)
-            .build(reload_handle, network_client)
+            .build(reload_handle, network_client.clone(), state_client.clone())
             .await?;
 
-        server.run().await?;
+        let server_handle = server.run().await?;
+        Server::wait(&network_client, &state_client, server_handle).await;
 
         Ok(())
     }

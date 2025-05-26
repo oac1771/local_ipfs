@@ -164,11 +164,11 @@ impl NetworkClient {
         }
     }
 
-    pub async fn stopped(self) {
+    pub async fn stopped(&self) {
         self.stop_tx.closed().await
     }
 
-    pub fn stop(self) -> Result<(), NetworkError> {
+    pub fn stop(&self) -> Result<(), NetworkError> {
         self.stop_tx
             .send(())
             .map_err(|err| NetworkError::WatchSend { source: err })?;
@@ -263,7 +263,7 @@ impl Network {
 
         self.swarm
             .listen_on(format!("/ip4/0.0.0.0/tcp/{}", self.port).parse()?)?;
-        self.get_listener_addresses().await?;
+        self.wait_listener_addresses().await?;
 
         if !self.is_boot_node {
             self.dial_bootnode().await;
@@ -284,7 +284,11 @@ impl Network {
         Ok(network_client)
     }
 
-    async fn get_listener_addresses(&mut self) -> Result<(), NetworkError> {
+    // async fn start_gossip_hanlder(&self) {
+
+    // }
+
+    async fn wait_listener_addresses(&mut self) -> Result<(), NetworkError> {
         let peer_id = PeerId::from_bytes(&self.swarm.local_peer_id().to_bytes())?;
 
         loop {

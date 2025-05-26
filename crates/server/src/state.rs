@@ -41,7 +41,7 @@ impl StateClient {
         Self { req_tx, stop_tx }
     }
 
-    pub async fn stopped(self) {
+    pub async fn stopped(&self) {
         self.stop_tx.closed().await
     }
 
