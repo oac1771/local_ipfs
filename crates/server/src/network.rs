@@ -274,7 +274,7 @@ impl Network {
             async move {
                 // Assign in this future so channel remains open
                 let _gossip_msg_rx = gossip_msg_rx;
-                self.run(req_rx, gossip_msg_tx, stop_rx).await
+                Self::run(self.swarm, req_rx, gossip_msg_tx, stop_rx).await
             }
             .instrument(span),
         );
@@ -284,9 +284,8 @@ impl Network {
         Ok(network_client)
     }
 
-    // async fn start_gossip_hanlder(&self) {
-
-    // }
+    // this could take a closure that accepts msg: Vec<u8> and rx does desierialization by reading gossip messages and executes some fn
+    async fn start_gossip_hanlder(&self) {}
 
     async fn wait_listener_addresses(&mut self) -> Result<(), NetworkError> {
         let peer_id = PeerId::from_bytes(&self.swarm.local_peer_id().to_bytes())?;
@@ -324,7 +323,7 @@ impl Network {
 
                 let mut routed = false;
 
-                let duration = TokioDuration::from_secs(2);
+                let duration = TokioDuration::from_secs(1);
                 let result = timeout(duration, async {
                     while !routed {
                         match self.swarm.select_next_some().await {
@@ -373,55 +372,53 @@ impl Network {
     }
 
     async fn run(
-        &mut self,
+        mut swarm: Swarm<Behavior>,
         mut req_rx: mpsc::Receiver<ClientRequest>,
         gossip_msg_tx: broadcast::Sender<GossipMessage>,
         mut stop_rx: watch::Receiver<()>,
     ) -> Result<(), NetworkError> {
         loop {
             select! {
-                Some(request) = req_rx.recv() => self.handle_client_request(request),
-                event = self.swarm.select_next_some() => self.handle_event(event, &gossip_msg_tx).await,
+                Some(request) = req_rx.recv() => Self::handle_client_request(request, &mut swarm),
+                event = swarm.select_next_some() => Self::handle_event(event, &gossip_msg_tx, &mut swarm).await,
                 _ = stop_rx.changed() => break Ok(()),
             }
         }
     }
 
-    fn handle_client_request(&mut self, request: ClientRequest) {
+    fn handle_client_request(request: ClientRequest, swarm: &mut Swarm<Behavior>) {
         let sender = request.sender;
         let result = match request.payload {
             ClientRequestPayload::Publish { topic, msg } => {
                 let tpc = gossipsub::IdentTopic::new(&topic);
-                let result =
-                    if let Err(err) = self.swarm.behaviour_mut().gossipsub.publish(tpc, msg) {
-                        error!("Publishing Error: {}", err);
-                        Err(NetworkError::from(err))
-                    } else {
-                        info!("Successfully published message to {} topic", topic);
-                        Ok(ClientResponse::Publish)
-                    };
+                let result = if let Err(err) = swarm.behaviour_mut().gossipsub.publish(tpc, msg) {
+                    error!("Publishing Error: {}", err);
+                    Err(NetworkError::from(err))
+                } else {
+                    info!("Successfully published message to {} topic", topic);
+                    Ok(ClientResponse::Publish)
+                };
                 result
             }
             ClientRequestPayload::Subscribe { topic } => {
                 let topic = gossipsub::IdentTopic::new(topic);
 
-                let result =
-                    if let Err(err) = self.swarm.behaviour_mut().gossipsub.subscribe(&topic) {
-                        error!("Subscription Error: {}", err);
-                        Err(NetworkError::from(err))
-                    } else {
-                        info!("Subscribed to topic: {}", topic);
-                        Ok(ClientResponse::Subscribe)
-                    };
+                let result = if let Err(err) = swarm.behaviour_mut().gossipsub.subscribe(&topic) {
+                    error!("Subscription Error: {}", err);
+                    Err(NetworkError::from(err))
+                } else {
+                    info!("Subscribed to topic: {}", topic);
+                    Ok(ClientResponse::Subscribe)
+                };
                 result
             }
             ClientRequestPayload::ConnectedPeers => {
-                let peers = self.swarm.connected_peers().cloned().collect::<Vec<_>>();
+                let peers = swarm.connected_peers().cloned().collect::<Vec<_>>();
                 let result = ClientResponse::ConnectedPeers { peers };
                 Ok(result)
             }
             ClientRequestPayload::PeerId => {
-                let peer_id = *self.swarm.local_peer_id();
+                let peer_id = *swarm.local_peer_id();
                 let result = ClientResponse::PeerId { peer_id };
                 Ok(result)
             }
@@ -440,9 +437,9 @@ impl Network {
     }
 
     async fn handle_event(
-        &mut self,
         event: SwarmEvent<BehaviorEvent>,
         gossip_msg_tx: &broadcast::Sender<GossipMessage>,
+        swarm: &mut Swarm<Behavior>,
     ) {
         match event {
             SwarmEvent::Behaviour(BehaviorEvent::Gossipsub(gossipsub::Event::Message {
@@ -469,7 +466,7 @@ impl Network {
             })) => {
                 info!("Identify info received from {identified_peer}");
                 for addr in info.listen_addrs {
-                    self.swarm
+                    swarm
                         .behaviour_mut()
                         .kademlia
                         .add_address(&identified_peer, addr);

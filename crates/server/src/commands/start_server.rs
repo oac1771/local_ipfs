@@ -61,15 +61,16 @@ impl StartServerCmd {
     }
 
     fn handle_args(self) -> Result<ServerConfig, CommandError> {
-        if self.dev {
-        } else if self.is_boot_node && !self.boot_node_addr.is_empty() {
-            return Err(CommandError::Arg(
-                "Cannot pass both --is-boot-node and value for --boot-node-addr".into(),
-            ));
-        } else if !self.is_boot_node && self.boot_node_addr.is_empty() {
-            return Err(CommandError::Arg(
-                "Must pass either --is-boot-node or --boot-node-addr".into(),
-            ));
+        if !self.dev {
+            if self.is_boot_node && !self.boot_node_addr.is_empty() {
+                return Err(CommandError::Arg(
+                    "Cannot pass both --is-boot-node and value for --boot-node-addr".into(),
+                ));
+            } else if !self.is_boot_node && self.boot_node_addr.is_empty() {
+                return Err(CommandError::Arg(
+                    "Must pass either --is-boot-node or --boot-node-addr".into(),
+                ));
+            }
         }
 
         let mut modules = vec![Module::Util];
