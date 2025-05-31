@@ -91,11 +91,12 @@ mod tests {
                 .with_port(&self.server_config.network_port)
                 .with_is_boot_node(self.server_config.is_boot_node)
                 .with_boot_addr(&self.server_config.boot_node_addr)
+                .with_topic(&self.server_config.topic)
                 .build()
                 .unwrap();
             let state = State::new();
 
-            let network_client = network.start(&self.server_config.topic).await.unwrap();
+            let network_client = network.start().await.unwrap();
             let state_client = state.start();
 
             let server = ServerBuilder::new(self.server_config)

@@ -1,6 +1,9 @@
 use crate::{
-    network::NetworkBuilder,
-    rpc::Module,
+    network::{GossipCallBackFn, NetworkBuilder},
+    rpc::{
+        ipfs::{IpfsApi, ReqwestClient},
+        Module,
+    },
     server::{builder::ServerBuilder, Server, ServerConfig},
     state::State,
 };
@@ -40,14 +43,19 @@ impl StartServerCmd {
     ) -> Result<(), CommandError> {
         let server_config = self.handle_args()?;
 
+        let gossip_callback_fns = Self::build_network_gossip_callback_fns(&server_config.modules);
+
         let network = NetworkBuilder::new()
             .with_port(&server_config.network_port)
             .with_is_boot_node(server_config.is_boot_node)
             .with_boot_addr(&server_config.boot_node_addr)
+            .with_topic(&server_config.topic)
+            .with_gossip_callback_fns(gossip_callback_fns)
             .build()?;
+
         let state = State::new();
 
-        let network_client = network.start(&server_config.topic).await?;
+        let network_client = network.start().await?;
         let state_client = state.start();
 
         let server = ServerBuilder::new(server_config)
@@ -94,5 +102,20 @@ impl StartServerCmd {
         };
 
         Ok(config)
+    }
+
+    // am going to need to make sure order is correct or use for_each instead and only append to a vec if its module::ipfs so that way we dont care
+    // about order
+    fn build_network_gossip_callback_fns(modules: &[Module]) -> Vec<GossipCallBackFn> {
+        modules
+            .iter()
+            .map(|m| {
+                if let Module::Ipfs = m {
+                    Box::new(IpfsApi::<ReqwestClient>::gossip_callback_fns)
+                } else {
+                    Box::new(|_: &[u8]| None) as GossipCallBackFn
+                }
+            })
+            .collect::<Vec<GossipCallBackFn>>()
     }
 }

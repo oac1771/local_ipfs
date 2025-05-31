@@ -83,6 +83,10 @@ where
 
         Ok(())
     }
+
+    pub fn gossip_callback_fns(_msg: &[u8]) -> Option<()> {
+        Some(())
+    }
 }
 
 impl<C> Call for IpfsApi<C> {}

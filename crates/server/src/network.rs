@@ -22,14 +22,19 @@ use tokio::{
 use tracing::{error, info, warn, Instrument, Span};
 
 type GossipMessage = Vec<u8>;
+pub type GossipCallBackFn = Box<dyn Fn(&[u8]) -> Option<()> + std::marker::Send>;
 pub struct NoP;
-pub struct NoT;
+pub struct NoB;
 pub struct NoA;
+pub struct NoT;
+pub struct NoFn;
 
-pub struct NetworkBuilder<P, T, A> {
+pub struct NetworkBuilder<P, B, A, T, Fn> {
     port: P,
-    is_boot_node: T,
+    is_boot_node: B,
     boot_addr: A,
+    topic: T,
+    gossip_callback_fns: Fn,
 }
 
 pub struct Network {
@@ -37,6 +42,8 @@ pub struct Network {
     port: String,
     is_boot_node: bool,
     boot_addr: String,
+    topic: String,
+    gossip_callback_fns: Vec<GossipCallBackFn>,
 }
 
 #[derive(Clone)]
@@ -47,49 +54,82 @@ pub struct NetworkClient {
     topic: String,
 }
 
-impl NetworkBuilder<NoP, NoT, NoA> {
+impl NetworkBuilder<NoP, NoB, NoA, NoT, NoFn> {
     pub fn new() -> Self {
         Self {
             port: NoP,
-            is_boot_node: NoT,
+            is_boot_node: NoB,
             boot_addr: NoA,
+            topic: NoT,
+            gossip_callback_fns: NoFn,
         }
     }
 }
 
-impl Default for NetworkBuilder<NoP, NoT, NoA> {
+impl Default for NetworkBuilder<NoP, NoB, NoA, NoT, NoFn> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<P, T, A> NetworkBuilder<P, T, A> {
-    pub fn with_port(self, port: impl Into<String>) -> NetworkBuilder<String, T, A> {
+impl<P, B, A, T, Fn> NetworkBuilder<P, B, A, T, Fn> {
+    pub fn with_port(self, port: impl Into<String>) -> NetworkBuilder<String, B, A, T, Fn> {
         NetworkBuilder {
             port: port.into(),
             is_boot_node: self.is_boot_node,
             boot_addr: self.boot_addr,
+            topic: self.topic,
+            gossip_callback_fns: self.gossip_callback_fns,
         }
     }
 
-    pub fn with_is_boot_node(self, is_boot_node: bool) -> NetworkBuilder<P, bool, A> {
+    pub fn with_is_boot_node(self, is_boot_node: bool) -> NetworkBuilder<P, bool, A, T, Fn> {
         NetworkBuilder {
             port: self.port,
             is_boot_node,
             boot_addr: self.boot_addr,
+            topic: self.topic,
+            gossip_callback_fns: self.gossip_callback_fns,
         }
     }
 
-    pub fn with_boot_addr(self, boot_addr: impl Into<String>) -> NetworkBuilder<P, T, String> {
+    pub fn with_boot_addr(
+        self,
+        boot_addr: impl Into<String>,
+    ) -> NetworkBuilder<P, B, String, T, Fn> {
         NetworkBuilder {
             port: self.port,
             is_boot_node: self.is_boot_node,
             boot_addr: boot_addr.into(),
+            topic: self.topic,
+            gossip_callback_fns: self.gossip_callback_fns,
+        }
+    }
+
+    pub fn with_topic(self, topic: impl Into<String>) -> NetworkBuilder<P, B, A, String, Fn> {
+        NetworkBuilder {
+            port: self.port,
+            is_boot_node: self.is_boot_node,
+            boot_addr: self.boot_addr,
+            topic: topic.into(),
+            gossip_callback_fns: self.gossip_callback_fns,
+        }
+    }
+    pub fn with_gossip_callback_fns(
+        self,
+        gossip_callback_fns: Vec<GossipCallBackFn>,
+    ) -> NetworkBuilder<P, B, A, T, Vec<GossipCallBackFn>> {
+        NetworkBuilder {
+            port: self.port,
+            is_boot_node: self.is_boot_node,
+            boot_addr: self.boot_addr,
+            topic: self.topic,
+            gossip_callback_fns,
         }
     }
 }
 
-impl NetworkBuilder<String, bool, String> {
+impl NetworkBuilder<String, bool, String, String, Vec<GossipCallBackFn>> {
     pub fn build(self) -> Result<Network, NetworkError> {
         let swarm = libp2p::SwarmBuilder::with_new_identity()
             .with_tokio()
@@ -145,6 +185,8 @@ impl NetworkBuilder<String, bool, String> {
             port: self.port,
             is_boot_node: self.is_boot_node,
             boot_addr: self.boot_addr,
+            topic: self.topic,
+            gossip_callback_fns: self.gossip_callback_fns,
         })
     }
 }
@@ -254,12 +296,13 @@ impl NetworkClient {
 }
 
 impl Network {
-    pub async fn start(mut self, topic: impl Into<String>) -> Result<NetworkClient, NetworkError> {
+    pub async fn start(mut self) -> Result<NetworkClient, NetworkError> {
         let (req_tx, req_rx) = mpsc::channel::<ClientRequest>(100);
         let (gossip_msg_tx, gossip_msg_rx) = broadcast::channel::<GossipMessage>(100);
         let (stop_tx, stop_rx) = watch::channel(());
 
-        let network_client = NetworkClient::new(req_tx, gossip_msg_tx.clone(), stop_tx, topic);
+        let network_client =
+            NetworkClient::new(req_tx, gossip_msg_tx.clone(), stop_tx, &self.topic);
 
         self.swarm
             .listen_on(format!("/ip4/0.0.0.0/tcp/{}", self.port).parse()?)?;
@@ -271,12 +314,13 @@ impl Network {
 
         let span = Span::current();
         tokio::spawn(
-            async move {
-                // Assign in this future so channel remains open
-                let _gossip_msg_rx = gossip_msg_rx;
-                Self::run(self.swarm, req_rx, gossip_msg_tx, stop_rx).await
-            }
-            .instrument(span),
+            // pass callback fn here
+            async move { Self::start_gossip_hanlder(gossip_msg_rx, self.gossip_callback_fns).await }.instrument(span.clone()),
+        );
+
+        tokio::spawn(
+            async move { Self::run(self.swarm, req_rx, gossip_msg_tx, stop_rx).await }
+                .instrument(span),
         );
 
         network_client.subscribe().await?;
@@ -284,8 +328,16 @@ impl Network {
         Ok(network_client)
     }
 
-    // this could take a closure that accepts msg: Vec<u8> and rx does desierialization by reading gossip messages and executes some fn
-    async fn start_gossip_hanlder(&self) {}
+    async fn start_gossip_hanlder(
+        mut gossip_msg_rx: broadcast::Receiver<Vec<u8>>,
+        gossip_callback_fns: Vec<GossipCallBackFn>,
+    ) {
+        while let Ok(msg) = gossip_msg_rx.recv().await {
+            gossip_callback_fns.iter().for_each(|func| {
+                func(&msg);
+            });
+        }
+    }
 
     async fn wait_listener_addresses(&mut self) -> Result<(), NetworkError> {
         let peer_id = PeerId::from_bytes(&self.swarm.local_peer_id().to_bytes())?;
@@ -376,7 +428,7 @@ impl Network {
         mut req_rx: mpsc::Receiver<ClientRequest>,
         gossip_msg_tx: broadcast::Sender<GossipMessage>,
         mut stop_rx: watch::Receiver<()>,
-    ) -> Result<(), NetworkError> {
+    ) -> Result<(), ()> {
         loop {
             select! {
                 Some(request) = req_rx.recv() => Self::handle_client_request(request, &mut swarm),
