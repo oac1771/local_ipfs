@@ -4,7 +4,7 @@ use crate::{
     rpc::{ipfs::IpfsApi, metrics::MetricsApi, util::UtilApi, Module},
     state::StateClient,
 };
-use std::{env::var, ops::ControlFlow};
+use std::ops::ControlFlow;
 
 use jsonrpsee::{Methods, RpcModule};
 use tracing::info;
@@ -31,16 +31,16 @@ impl ServerBuilder {
 
         let result = self.config.modules.iter().try_for_each(|m| {
             let methods: Methods = match m {
-                Module::Ipfs => {
-                    let ipfs_base_url =
-                        var("IPFS_BASE_URL").unwrap_or("http://localhost:5001".into());
-                    IpfsApi::new(ipfs_base_url, state_client.clone(), network_client.clone()).into()
-                }
+                Module::Ipfs => IpfsApi::new(
+                    self.config.ipfs_base_url.clone(),
+                    state_client.clone(),
+                    network_client.clone(),
+                )
+                .into(),
                 Module::Util => UtilApi::new(reload_handle.clone()).into(),
                 Module::Metrics => {
-                    let push_gateway_url =
-                        var("PUSH_GATEWAY_BASE_URL").unwrap_or("http://localhost:9091".into());
-                    MetricsApi::new(push_gateway_url, state_client.clone()).into()
+                    MetricsApi::new(self.config.push_gateway_url.clone(), state_client.clone())
+                        .into()
                 }
             };
             match rpc_module.merge(methods) {

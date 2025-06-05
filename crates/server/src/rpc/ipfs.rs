@@ -84,8 +84,23 @@ where
         Ok(())
     }
 
-    pub fn gossip_callback_fns(_msg: &[u8]) -> Option<()> {
-        Some(())
+    pub fn gossip_callback_fns(msg: &[u8], ipfs_base_url: String, client: C) {
+        async {
+            if let Ok(GossipMessage::AddFile { hash }) =
+                serde_json::from_slice::<GossipMessage>(msg)
+            {
+                let url = format!("{}/api/v0/pin/add?arg={}", ipfs_base_url, hash);
+                let request = || async move { client.post(url).await }.boxed();
+                let _response = <Self as Call>::call::<IpfsPinAddResponse, IpfsApiError>(request)
+                    .await
+                    .map_err(|err| RpcServeError::Message(err.to_string()))
+                    .unwrap()
+                    .ok_or_else(|| {
+                        RpcServeError::Message("Received empty response from ipfs".into())
+                    })
+                    .unwrap();
+            }
+        };
     }
 }
 
@@ -99,7 +114,7 @@ where
     async fn id(&self) -> RpcResult<IpfsIdResponse> {
         let url = format!("{}{}", self.ipfs_base_url, "/api/v0/id");
         let request = || async move { self.client.post(url).await }.boxed();
-        let response = <IpfsApi<C> as Call>::call::<IpfsIdResponse, IpfsApiError>(request)
+        let response = <Self as Call>::call::<IpfsIdResponse, IpfsApiError>(request)
             .await
             .map_err(|err| RpcServeError::Message(err.to_string()))?
             .ok_or_else(|| RpcServeError::Message("Received empty response from ipfs".into()))?;
@@ -112,13 +127,12 @@ where
             PinAction::ls => {
                 let url = format!("{}{}", self.ipfs_base_url, "/api/v0/pin/ls");
                 let request = || async move { self.client.post(url).await }.boxed();
-                let response =
-                    <IpfsApi<C> as Call>::call::<IpfsPinLsResponse, IpfsApiError>(request)
-                        .await
-                        .map_err(|err| RpcServeError::Message(err.to_string()))?
-                        .ok_or_else(|| {
-                            RpcServeError::Message("Received empty response from ipfs".into())
-                        })?;
+                let response = <Self as Call>::call::<IpfsPinLsResponse, IpfsApiError>(request)
+                    .await
+                    .map_err(|err| RpcServeError::Message(err.to_string()))?
+                    .ok_or_else(|| {
+                        RpcServeError::Message("Received empty response from ipfs".into())
+                    })?;
                 response.into()
             }
             PinAction::add => {
@@ -126,13 +140,12 @@ where
                     hash.ok_or_else(|| RpcServeError::Message("Hash not supplied".to_string()))?;
                 let url = format!("{}/api/v0/pin/add?arg={}", self.ipfs_base_url, hash);
                 let request = || async move { self.client.post(url).await }.boxed();
-                let response =
-                    <IpfsApi<C> as Call>::call::<IpfsPinAddResponse, IpfsApiError>(request)
-                        .await
-                        .map_err(|err| RpcServeError::Message(err.to_string()))?
-                        .ok_or_else(|| {
-                            RpcServeError::Message("Received empty response from ipfs".into())
-                        })?;
+                let response = <Self as Call>::call::<IpfsPinAddResponse, IpfsApiError>(request)
+                    .await
+                    .map_err(|err| RpcServeError::Message(err.to_string()))?
+                    .ok_or_else(|| {
+                        RpcServeError::Message("Received empty response from ipfs".into())
+                    })?;
                 response.into()
             }
             PinAction::rm => {
@@ -140,13 +153,12 @@ where
                     hash.ok_or_else(|| RpcServeError::Message("Hash not supplied".to_string()))?;
                 let url = format!("{}/api/v0/pin/rm?arg={}", self.ipfs_base_url, hash);
                 let request = || async move { self.client.post(url).await }.boxed();
-                let response =
-                    <IpfsApi<C> as Call>::call::<IpfsPinRmResponse, IpfsApiError>(request)
-                        .await
-                        .map_err(|err| RpcServeError::Message(err.to_string()))?
-                        .ok_or_else(|| {
-                            RpcServeError::Message("Received empty response from ipfs".into())
-                        })?;
+                let response = <Self as Call>::call::<IpfsPinRmResponse, IpfsApiError>(request)
+                    .await
+                    .map_err(|err| RpcServeError::Message(err.to_string()))?
+                    .ok_or_else(|| {
+                        RpcServeError::Message("Received empty response from ipfs".into())
+                    })?;
                 response.into()
             }
         };
@@ -162,7 +174,7 @@ where
         let form = Form::new().part("file", part);
 
         let request = || async move { self.client.post_multipart(url, form).await }.boxed();
-        let response = <IpfsApi<C> as Call>::call::<IpfsAddResponse, IpfsApiError>(request)
+        let response = <Self as Call>::call::<IpfsAddResponse, IpfsApiError>(request)
             .await
             .map_err(|err| RpcServeError::Message(err.to_string()))?
             .ok_or_else(|| RpcServeError::Message("Received empty response from ipfs".into()))?;
@@ -209,12 +221,13 @@ where
     }
 }
 
+#[derive(Clone)]
 pub struct ReqwestClient {
     client: Client,
 }
 
 impl ReqwestClient {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             client: Client::new(),
         }

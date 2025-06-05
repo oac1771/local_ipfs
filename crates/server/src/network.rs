@@ -22,7 +22,7 @@ use tokio::{
 use tracing::{error, info, warn, Instrument, Span};
 
 type GossipMessage = Vec<u8>;
-pub type GossipCallBackFn = Box<dyn Fn(&[u8]) -> Option<()> + std::marker::Send>;
+pub type GossipCallBackFn = Box<dyn Fn(&[u8]) + std::marker::Send>;
 pub struct NoP;
 pub struct NoB;
 pub struct NoA;
@@ -314,7 +314,6 @@ impl Network {
 
         let span = Span::current();
         tokio::spawn(
-            // pass callback fn here
             async move { Self::start_gossip_hanlder(gossip_msg_rx, self.gossip_callback_fns).await }.instrument(span.clone()),
         );
 

@@ -20,6 +20,8 @@ pub struct ServerConfig {
     pub boot_node_addr: String,
     pub is_boot_node: bool,
     pub topic: String,
+    pub ipfs_base_url: String,
+    pub push_gateway_url: String,
 }
 
 pub struct Server {

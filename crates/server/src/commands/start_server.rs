@@ -8,6 +8,7 @@ use crate::{
     state::State,
 };
 use clap::Parser;
+use std::env::var;
 use tracing_subscriber::{reload::Handle, EnvFilter, Registry};
 
 use super::error::CommandError;
@@ -43,7 +44,10 @@ impl StartServerCmd {
     ) -> Result<(), CommandError> {
         let server_config = self.handle_args()?;
 
-        let gossip_callback_fns = Self::build_network_gossip_callback_fns(&server_config.modules);
+        let gossip_callback_fns = Self::build_network_gossip_callback_fns(
+            &server_config.modules,
+            &server_config.ipfs_base_url,
+        );
 
         let network = NetworkBuilder::new()
             .with_port(&server_config.network_port)
@@ -91,6 +95,10 @@ impl StartServerCmd {
             modules.push(Module::Ipfs)
         }
 
+        let ipfs_base_url = var("IPFS_BASE_URL").unwrap_or("http://localhost:5001".into());
+        let push_gateway_url =
+            var("PUSH_GATEWAY_BASE_URL").unwrap_or("http://localhost:9091".into());
+
         let config = ServerConfig {
             port: self.port,
             network_port: self.network_port,
@@ -99,21 +107,38 @@ impl StartServerCmd {
             is_boot_node: self.is_boot_node,
             modules,
             topic: String::from("ipfs"),
+            ipfs_base_url,
+            push_gateway_url,
         };
 
         Ok(config)
     }
 
-    // am going to need to make sure order is correct or use for_each instead and only append to a vec if its module::ipfs so that way we dont care
-    // about order
-    fn build_network_gossip_callback_fns(modules: &[Module]) -> Vec<GossipCallBackFn> {
+    fn build_network_gossip_callback_fns<I>(
+        modules: &[Module],
+        ipfs_base_url: I,
+    ) -> Vec<GossipCallBackFn>
+    where
+        I: ToString + std::marker::Send,
+    {
+        let ipfs_base_url = ipfs_base_url.to_string();
+
         modules
             .iter()
-            .map(|m| {
+            .filter_map(|m| {
                 if let Module::Ipfs = m {
-                    Box::new(IpfsApi::<ReqwestClient>::gossip_callback_fns)
+                    let client = ReqwestClient::new();
+                    let ipfs_base_url = ipfs_base_url.clone();
+
+                    Some(Box::new(move |msg: &[u8]| {
+                        IpfsApi::<ReqwestClient>::gossip_callback_fns(
+                            msg,
+                            ipfs_base_url.clone(),
+                            client.clone(),
+                        )
+                    }) as GossipCallBackFn)
                 } else {
-                    Box::new(|_: &[u8]| None) as GossipCallBackFn
+                    None
                 }
             })
             .collect::<Vec<GossipCallBackFn>>()
