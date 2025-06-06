@@ -84,23 +84,17 @@ where
         Ok(())
     }
 
-    pub fn gossip_callback_fns(msg: &[u8], ipfs_base_url: String, client: C) {
-        async {
-            if let Ok(GossipMessage::AddFile { hash }) =
-                serde_json::from_slice::<GossipMessage>(msg)
-            {
-                let url = format!("{}/api/v0/pin/add?arg={}", ipfs_base_url, hash);
-                let request = || async move { client.post(url).await }.boxed();
-                let _response = <Self as Call>::call::<IpfsPinAddResponse, IpfsApiError>(request)
-                    .await
-                    .map_err(|err| RpcServeError::Message(err.to_string()))
-                    .unwrap()
-                    .ok_or_else(|| {
-                        RpcServeError::Message("Received empty response from ipfs".into())
-                    })
-                    .unwrap();
-            }
-        };
+    pub async fn gossip_callback_fn(msg: &[u8], ipfs_base_url: String, client: C) {
+        if let Ok(GossipMessage::AddFile { hash }) = serde_json::from_slice::<GossipMessage>(msg) {
+            let url = format!("{}/api/v0/pin/add?arg={}", ipfs_base_url, hash);
+            let request = || async move { client.post(url).await }.boxed();
+            let _response = <Self as Call>::call::<IpfsPinAddResponse, IpfsApiError>(request)
+                .await
+                .map_err(|err| RpcServeError::Message(err.to_string()))
+                .unwrap()
+                .ok_or_else(|| RpcServeError::Message("Received empty response from ipfs".into()))
+                .unwrap();
+        }
     }
 }
 
@@ -231,6 +225,12 @@ impl ReqwestClient {
         Self {
             client: Client::new(),
         }
+    }
+}
+
+impl Default for ReqwestClient {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

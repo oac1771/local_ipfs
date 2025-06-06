@@ -72,6 +72,8 @@ mod tests {
                 is_boot_node,
                 boot_node_addr: boot_node_addr.into(),
                 topic: topic.into(),
+                ipfs_base_url: "".into(),
+                push_gateway_url: "".into(),
             };
 
             Self {

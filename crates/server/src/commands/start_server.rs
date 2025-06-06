@@ -8,6 +8,7 @@ use crate::{
     state::State,
 };
 use clap::Parser;
+use futures::future::FutureExt;
 use std::env::var;
 use tracing_subscriber::{reload::Handle, EnvFilter, Registry};
 
@@ -54,12 +55,11 @@ impl StartServerCmd {
             .with_is_boot_node(server_config.is_boot_node)
             .with_boot_addr(&server_config.boot_node_addr)
             .with_topic(&server_config.topic)
-            .with_gossip_callback_fns(gossip_callback_fns)
             .build()?;
 
         let state = State::new();
 
-        let network_client = network.start().await?;
+        let network_client = network.start(gossip_callback_fns).await?;
         let state_client = state.start();
 
         let server = ServerBuilder::new(server_config)
@@ -121,22 +121,31 @@ impl StartServerCmd {
     where
         I: ToString + std::marker::Send,
     {
-        let ipfs_base_url = ipfs_base_url.to_string();
-
         modules
             .iter()
             .filter_map(|m| {
                 if let Module::Ipfs = m {
-                    let client = ReqwestClient::new();
-                    let ipfs_base_url = ipfs_base_url.clone();
+                    let client = ReqwestClient::default();
+                    let ipfs_base_url = ipfs_base_url.to_string();
 
-                    Some(Box::new(move |msg: &[u8]| {
-                        IpfsApi::<ReqwestClient>::gossip_callback_fns(
-                            msg,
-                            ipfs_base_url.clone(),
-                            client.clone(),
-                        )
-                    }) as GossipCallBackFn)
+                    let callback_fn: GossipCallBackFn = Box::new({
+                        move |msg: &[u8]| {
+                            let ipfs_base_url = ipfs_base_url.clone();
+                            let client = client.clone();
+
+                            async move {
+                                IpfsApi::<ReqwestClient>::gossip_callback_fn(
+                                    msg,
+                                    ipfs_base_url,
+                                    client,
+                                )
+                                .await;
+                            }
+                            .boxed()
+                        }
+                    });
+
+                    Some(callback_fn)
                 } else {
                     None
                 }

@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use futures::StreamExt;
+use futures::{future::BoxFuture, StreamExt};
 use libp2p::{
     gossipsub, identify, kad,
     multiaddr::Protocol,
@@ -22,19 +22,17 @@ use tokio::{
 use tracing::{error, info, warn, Instrument, Span};
 
 type GossipMessage = Vec<u8>;
-pub type GossipCallBackFn = Box<dyn Fn(&[u8]) + std::marker::Send>;
+pub type GossipCallBackFn = Box<dyn for<'a> Fn(&'a [u8]) -> BoxFuture<'a, ()> + Send + Sync>;
 pub struct NoP;
 pub struct NoB;
 pub struct NoA;
 pub struct NoT;
-pub struct NoFn;
 
-pub struct NetworkBuilder<P, B, A, T, Fn> {
+pub struct NetworkBuilder<P, B, A, T> {
     port: P,
     is_boot_node: B,
     boot_addr: A,
     topic: T,
-    gossip_callback_fns: Fn,
 }
 
 pub struct Network {
@@ -43,7 +41,6 @@ pub struct Network {
     is_boot_node: bool,
     boot_addr: String,
     topic: String,
-    gossip_callback_fns: Vec<GossipCallBackFn>,
 }
 
 #[derive(Clone)]
@@ -54,82 +51,62 @@ pub struct NetworkClient {
     topic: String,
 }
 
-impl NetworkBuilder<NoP, NoB, NoA, NoT, NoFn> {
+impl NetworkBuilder<NoP, NoB, NoA, NoT> {
     pub fn new() -> Self {
         Self {
             port: NoP,
             is_boot_node: NoB,
             boot_addr: NoA,
             topic: NoT,
-            gossip_callback_fns: NoFn,
         }
     }
 }
 
-impl Default for NetworkBuilder<NoP, NoB, NoA, NoT, NoFn> {
+impl Default for NetworkBuilder<NoP, NoB, NoA, NoT> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<P, B, A, T, Fn> NetworkBuilder<P, B, A, T, Fn> {
-    pub fn with_port(self, port: impl Into<String>) -> NetworkBuilder<String, B, A, T, Fn> {
+impl<P, B, A, T> NetworkBuilder<P, B, A, T> {
+    pub fn with_port(self, port: impl Into<String>) -> NetworkBuilder<String, B, A, T> {
         NetworkBuilder {
             port: port.into(),
             is_boot_node: self.is_boot_node,
             boot_addr: self.boot_addr,
             topic: self.topic,
-            gossip_callback_fns: self.gossip_callback_fns,
         }
     }
 
-    pub fn with_is_boot_node(self, is_boot_node: bool) -> NetworkBuilder<P, bool, A, T, Fn> {
+    pub fn with_is_boot_node(self, is_boot_node: bool) -> NetworkBuilder<P, bool, A, T> {
         NetworkBuilder {
             port: self.port,
             is_boot_node,
             boot_addr: self.boot_addr,
             topic: self.topic,
-            gossip_callback_fns: self.gossip_callback_fns,
         }
     }
 
-    pub fn with_boot_addr(
-        self,
-        boot_addr: impl Into<String>,
-    ) -> NetworkBuilder<P, B, String, T, Fn> {
+    pub fn with_boot_addr(self, boot_addr: impl Into<String>) -> NetworkBuilder<P, B, String, T> {
         NetworkBuilder {
             port: self.port,
             is_boot_node: self.is_boot_node,
             boot_addr: boot_addr.into(),
             topic: self.topic,
-            gossip_callback_fns: self.gossip_callback_fns,
         }
     }
 
-    pub fn with_topic(self, topic: impl Into<String>) -> NetworkBuilder<P, B, A, String, Fn> {
+    pub fn with_topic(self, topic: impl Into<String>) -> NetworkBuilder<P, B, A, String> {
         NetworkBuilder {
             port: self.port,
             is_boot_node: self.is_boot_node,
             boot_addr: self.boot_addr,
             topic: topic.into(),
-            gossip_callback_fns: self.gossip_callback_fns,
-        }
-    }
-    pub fn with_gossip_callback_fns(
-        self,
-        gossip_callback_fns: Vec<GossipCallBackFn>,
-    ) -> NetworkBuilder<P, B, A, T, Vec<GossipCallBackFn>> {
-        NetworkBuilder {
-            port: self.port,
-            is_boot_node: self.is_boot_node,
-            boot_addr: self.boot_addr,
-            topic: self.topic,
-            gossip_callback_fns,
         }
     }
 }
 
-impl NetworkBuilder<String, bool, String, String, Vec<GossipCallBackFn>> {
+impl NetworkBuilder<String, bool, String, String> {
     pub fn build(self) -> Result<Network, NetworkError> {
         let swarm = libp2p::SwarmBuilder::with_new_identity()
             .with_tokio()
@@ -186,7 +163,6 @@ impl NetworkBuilder<String, bool, String, String, Vec<GossipCallBackFn>> {
             is_boot_node: self.is_boot_node,
             boot_addr: self.boot_addr,
             topic: self.topic,
-            gossip_callback_fns: self.gossip_callback_fns,
         })
     }
 }
@@ -296,7 +272,10 @@ impl NetworkClient {
 }
 
 impl Network {
-    pub async fn start(mut self) -> Result<NetworkClient, NetworkError> {
+    pub async fn start(
+        mut self,
+        gossip_callback_fns: Vec<GossipCallBackFn>,
+    ) -> Result<NetworkClient, NetworkError> {
         let (req_tx, req_rx) = mpsc::channel::<ClientRequest>(100);
         let (gossip_msg_tx, gossip_msg_rx) = broadcast::channel::<GossipMessage>(100);
         let (stop_tx, stop_rx) = watch::channel(());
@@ -314,7 +293,8 @@ impl Network {
 
         let span = Span::current();
         tokio::spawn(
-            async move { Self::start_gossip_hanlder(gossip_msg_rx, self.gossip_callback_fns).await }.instrument(span.clone()),
+            async move { Self::start_gossip_hanlder(gossip_msg_rx, gossip_callback_fns).await }
+                .instrument(span.clone()),
         );
 
         tokio::spawn(
@@ -332,9 +312,9 @@ impl Network {
         gossip_callback_fns: Vec<GossipCallBackFn>,
     ) {
         while let Ok(msg) = gossip_msg_rx.recv().await {
-            gossip_callback_fns.iter().for_each(|func| {
-                func(&msg);
-            });
+            for func in &gossip_callback_fns {
+                func(&msg).await;
+            }
         }
     }
 
