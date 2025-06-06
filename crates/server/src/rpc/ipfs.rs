@@ -279,7 +279,7 @@ enum IpfsApiError {
 }
 
 #[derive(Serialize, Deserialize)]
-enum GossipMessage {
+pub enum GossipMessage {
     AddFile { hash: String },
 }
 

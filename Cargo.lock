@@ -1576,6 +1576,7 @@ dependencies = [
 name = "integration_tests"
 version = "0.1.0"
 dependencies = [
+ "futures",
  "jsonrpsee",
  "libp2p",
  "rand 0.8.5",

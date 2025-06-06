@@ -4,6 +4,7 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
+futures = { workspace = true }
 jsonrpsee = { workspace = true , features = ["client"] }
 libp2p = { workspace = true }
 rand = { version = "0.8.5" }

@@ -1,14 +1,14 @@
 #[cfg(test)]
 mod tests {
+    use futures::FutureExt;
     use integration_tests::utils::{Log, Runner};
     use jsonrpsee::{core::client::Client, ws_client::WsClientBuilder};
 
     use rand::Rng;
     use server::{
         api::ipfs::IpfsClient,
-        network::NetworkBuilder,
-        network::NetworkClient,
-        rpc::Module,
+        network::{GossipCallBackFn, NetworkBuilder, NetworkClient},
+        rpc::{ipfs::GossipMessage, Module},
         server::{builder::ServerBuilder, Server, ServerConfig},
         state::State,
     };
@@ -16,7 +16,7 @@ mod tests {
         sync::{Arc, Mutex},
         time::Duration,
     };
-    use tracing::{instrument, Instrument, Span};
+    use tracing::{instrument, Instrument, Span, info};
     use tracing_subscriber::{reload::Layer, EnvFilter};
 
     struct ServerRunnerBuilder {
@@ -98,7 +98,10 @@ mod tests {
                 .unwrap();
             let state = State::new();
 
-            let network_client = network.start().await.unwrap();
+            let gossip_callback_fns =
+                Self::build_network_gossip_callback_fns(&self.server_config.modules);
+
+            let network_client = network.start(gossip_callback_fns).await.unwrap();
             let state_client = state.start();
 
             let server = ServerBuilder::new(self.server_config)
@@ -129,6 +132,32 @@ mod tests {
                 server_client,
                 network_client,
             }
+        }
+
+        fn build_network_gossip_callback_fns(modules: &[Module]) -> Vec<GossipCallBackFn> {
+            modules
+                .iter()
+                .filter_map(|m| {
+                    if let Module::Ipfs = m {
+                        let callback_fn: GossipCallBackFn = Box::new({
+                            move |msg: &[u8]| {
+                                async move {
+                                    if let Ok(GossipMessage::AddFile { hash:_ }) =
+                                        serde_json::from_slice::<GossipMessage>(msg)
+                                    {
+                                        info!("Processing add file gossip message");
+                                    }
+                                }
+                                .boxed()
+                            }
+                        });
+
+                        Some(callback_fn)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<GossipCallBackFn>>()
         }
     }
 
