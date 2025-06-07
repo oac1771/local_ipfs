@@ -85,21 +85,20 @@ where
             }
         };
         match self.network_client.publish(msg).await {
-            Ok(_) => info!("Successfully gossiped add file message"),
+            Ok(_) => info!("Successfully gossiped {} message", gossip_msg.to_str()),
             Err(err) => error!("Error while gossiping add file message: {}", err),
         };
     }
 
-    // fix unwraps here
     pub async fn gossip_callback_fn(msg: &[u8], ipfs_base_url: String, client: C) {
         if let Ok(GossipMessage::AddFile { hash }) = serde_json::from_slice::<GossipMessage>(msg) {
             info!("Processing add file gossip message");
             let url = format!("{}/api/v0/pin/add?arg={}", ipfs_base_url, hash);
             let request = || async move { client.post(url).await }.boxed();
 
-            match <Self as Call>::call::<IpfsAddResponse, IpfsApiError>(request).await {
-                Ok(Some(response)) => {
-                    info!("Successfully added {} from gossip message", response.hash)
+            match <Self as Call>::call::<IpfsPinAddResponse, IpfsApiError>(request).await {
+                Ok(Some(_)) => {
+                    info!("Successfully added {} from gossip message", hash)
                 }
                 Ok(None) => error!("Received empty response from ipfs server"),
                 Err(err) => error!("Error adding file from gossip message: {}", err),
@@ -174,6 +173,7 @@ where
                     .ok_or_else(|| {
                         RpcServeError::Message("Received empty response from ipfs".into())
                     })?;
+                info!("added {} pin", hash);
 
                 self.add_ipfs_pin_to_state(&hash).await;
                 self.gossip(&GossipMessage::AddPin { hash }).await;
@@ -190,6 +190,8 @@ where
                     .ok_or_else(|| {
                         RpcServeError::Message("Received empty response from ipfs".into())
                     })?;
+                info!("removed {} pin", hash);
+
                 self.rm_ipfs_pin_from_state(&hash).await;
                 self.gossip(&GossipMessage::RmPin { hash }).await;
                 response.into()
@@ -325,6 +327,16 @@ pub enum GossipMessage {
     AddFile { hash: String },
     AddPin { hash: String },
     RmPin { hash: String },
+}
+
+impl GossipMessage {
+    fn to_str(&self) -> &str {
+        match self {
+            GossipMessage::AddFile { hash: _ } => "add_file",
+            GossipMessage::AddPin { hash: _ } => "add_pin",
+            GossipMessage::RmPin { hash: _ } => "rm_pin",
+        }
+    }
 }
 
 #[cfg(feature = "mock-ipfs")]
