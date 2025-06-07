@@ -129,7 +129,7 @@ mod tests {
                         .await
                     {
                         Ok(server_client) => break server_client,
-                        Err(_) => tokio::time::sleep(tokio::time::Duration::from_millis(50)).await,
+                        Err(_) => tokio::time::sleep(tokio::time::Duration::from_millis(10)).await,
                     }
                 };
                 client
@@ -312,6 +312,7 @@ mod tests {
             [first, second, ..] => (first, second),
             _ => panic!("Not enough peers"),
         };
+        let mut gossip_receiver = node_2.network_client().gossip_receiver().await;
 
         let node_1_peer_id = node_1.network_client().get_peer_id().await.unwrap();
 
@@ -321,8 +322,6 @@ mod tests {
         node_2
             .assert_info_log_entry(&format!("Subscribed to topic: {}", topic))
             .await;
-
-        let mut gossip_receiver = node_2.network_client().gossip_receiver().await;
 
         node_1.network_client().publish(msg.clone()).await.unwrap();
 
@@ -380,6 +379,9 @@ mod tests {
             .await;
         node_2
             .assert_info_log_entry("Gossip message relayed to client")
+            .await;
+        node_2
+            .assert_info_log_entry("Processing add file gossip message")
             .await;
     }
 }
