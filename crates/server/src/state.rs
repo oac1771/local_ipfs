@@ -9,7 +9,8 @@ use tokio::{
 use tracing::{debug, error, info};
 
 pub struct State {
-    ipfs_hashes: HashSet<String>,
+    added_ipfs_hashes: HashSet<String>,
+    pinned_ipfs_hashes: HashSet<String>,
 }
 
 #[derive(Clone)]
@@ -27,12 +28,16 @@ pub struct StateRequest {
 #[derive(Debug)]
 enum StateRequestPayload {
     AddIpfsHash { hash: String },
+    PinIpfsHash { hash: String },
+    RmPinIpfsHash { hash: String },
     GetIpfsHashes,
 }
 
 #[derive(Debug)]
 enum StateResponse {
     AddIpfsHash,
+    PinIpfsHash,
+    RmIpfsHash,
     GetIpfsHashes { hashes: Vec<String> },
 }
 
@@ -52,6 +57,21 @@ impl StateClient {
 
     pub async fn add_ipfs_hash(&self, hash: String) -> Result<(), StateClientError<StateRequest>> {
         let payload = StateRequestPayload::AddIpfsHash { hash };
+        self.send_request(payload).await?;
+        Ok(())
+    }
+
+    pub async fn pin_ipfs_hash(&self, hash: String) -> Result<(), StateClientError<StateRequest>> {
+        let payload = StateRequestPayload::PinIpfsHash { hash };
+        self.send_request(payload).await?;
+        Ok(())
+    }
+
+    pub async fn rm_pin_ipfs_hash(
+        &self,
+        hash: String,
+    ) -> Result<(), StateClientError<StateRequest>> {
+        let payload = StateRequestPayload::RmPinIpfsHash { hash };
         self.send_request(payload).await?;
         Ok(())
     }
@@ -106,7 +126,8 @@ impl Default for State {
 impl State {
     pub fn new() -> Self {
         Self {
-            ipfs_hashes: HashSet::new(),
+            added_ipfs_hashes: HashSet::new(),
+            pinned_ipfs_hashes: HashSet::new(),
         }
     }
 
@@ -134,11 +155,23 @@ impl State {
         while let Some(req) = req_rx.recv().await {
             let resp = match req.payload {
                 StateRequestPayload::AddIpfsHash { hash } => {
-                    self.ipfs_hashes.insert(hash);
+                    self.added_ipfs_hashes.insert(hash);
                     Ok(StateResponse::AddIpfsHash)
                 }
+                StateRequestPayload::PinIpfsHash { hash } => {
+                    self.pinned_ipfs_hashes.insert(hash);
+                    Ok(StateResponse::PinIpfsHash)
+                }
+                StateRequestPayload::RmPinIpfsHash { hash } => {
+                    self.pinned_ipfs_hashes.remove(&hash);
+                    Ok(StateResponse::RmIpfsHash)
+                }
                 StateRequestPayload::GetIpfsHashes => {
-                    let hashes = self.ipfs_hashes.iter().cloned().collect::<Vec<String>>();
+                    let hashes = self
+                        .added_ipfs_hashes
+                        .iter()
+                        .cloned()
+                        .collect::<Vec<String>>();
                     Ok(StateResponse::GetIpfsHashes { hashes })
                 }
             };

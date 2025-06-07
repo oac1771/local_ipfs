@@ -55,45 +55,79 @@ impl<C> IpfsApi<C>
 where
     C: HttpClient + std::marker::Send + std::marker::Sync + 'static,
 {
-    async fn update_state(&self, hash: &str) {
+    async fn add_ipfs_to_state(&self, hash: &str) {
         match self.state_client.add_ipfs_hash(hash.to_string()).await {
             Ok(_) => debug!("Saved ipfs hash {} to state", hash),
             Err(err) => error!("Error saving ipfs hash to state: {:?}", err),
         };
     }
 
-    async fn gossip_add(&self, hash: &str) {
-        let msg = match serde_json::to_vec(&GossipMessage::AddFile {
-            hash: hash.to_string(),
-        }) {
+    async fn add_ipfs_pin_to_state(&self, hash: &str) {
+        match self.state_client.pin_ipfs_hash(hash.to_string()).await {
+            Ok(_) => debug!("Saved ipfs hash {} to state", hash),
+            Err(err) => error!("Error saving ipfs hash to state: {:?}", err),
+        };
+    }
+
+    async fn rm_ipfs_pin_from_state(&self, hash: &str) {
+        match self.state_client.rm_pin_ipfs_hash(hash.to_string()).await {
+            Ok(_) => debug!("Saved ipfs hash {} to state", hash),
+            Err(err) => error!("Error saving ipfs hash to state: {:?}", err),
+        };
+    }
+
+    async fn gossip(&self, gossip_msg: &GossipMessage) {
+        let msg = match serde_json::to_vec(gossip_msg) {
             Ok(msg) => msg,
             Err(err) => {
                 error!("Unable to seralize add file gossip message: {}", err);
                 return;
             }
         };
-        match self.gossip(msg).await {
+        match self.network_client.publish(msg).await {
             Ok(_) => info!("Successfully gossiped add file message"),
             Err(err) => error!("Error while gossiping add file message: {}", err),
         };
     }
 
-    async fn gossip(&self, msg: Vec<u8>) -> Result<(), IpfsApiError> {
-        self.network_client.publish(msg).await?;
-
-        Ok(())
-    }
-
+    // fix unwraps here
     pub async fn gossip_callback_fn(msg: &[u8], ipfs_base_url: String, client: C) {
         if let Ok(GossipMessage::AddFile { hash }) = serde_json::from_slice::<GossipMessage>(msg) {
+            info!("Processing add file gossip message");
             let url = format!("{}/api/v0/pin/add?arg={}", ipfs_base_url, hash);
             let request = || async move { client.post(url).await }.boxed();
-            let _response = <Self as Call>::call::<IpfsPinAddResponse, IpfsApiError>(request)
-                .await
-                .map_err(|err| RpcServeError::Message(err.to_string()))
-                .unwrap()
-                .ok_or_else(|| RpcServeError::Message("Received empty response from ipfs".into()))
-                .unwrap();
+
+            match <Self as Call>::call::<IpfsAddResponse, IpfsApiError>(request).await {
+                Ok(Some(response)) => {
+                    info!("Successfully added {} from gossip message", response.hash)
+                }
+                Ok(None) => error!("Received empty response from ipfs server"),
+                Err(err) => error!("Error adding file from gossip message: {}", err),
+            };
+        } else if let Ok(GossipMessage::AddPin { hash }) =
+            serde_json::from_slice::<GossipMessage>(msg)
+        {
+            info!("Processing add pin gossip message");
+            let url = format!("{}/api/v0/pin/add?arg={}", ipfs_base_url, hash);
+            let request = || async move { client.post(url).await }.boxed();
+
+            match <Self as Call>::call::<IpfsPinAddResponse, IpfsApiError>(request).await {
+                Ok(Some(_)) => info!("Successfully added {} pin from gossip message", hash),
+                Ok(None) => error!("Received empty response from ipfs server"),
+                Err(err) => error!("Error adding pin from gossip message: {}", err),
+            };
+        } else if let Ok(GossipMessage::RmPin { hash }) =
+            serde_json::from_slice::<GossipMessage>(msg)
+        {
+            info!("Processing rm pin gossip message");
+            let url = format!("{}/api/v0/pin/rm?arg={}", ipfs_base_url, hash);
+            let request = || async move { client.post(url).await }.boxed();
+
+            match <Self as Call>::call::<IpfsPinRmResponse, IpfsApiError>(request).await {
+                Ok(Some(_)) => info!("Successfully removed {} pin from gossip message", hash),
+                Ok(None) => error!("Received empty response from ipfs server"),
+                Err(err) => error!("Error removing pin from gossip message: {}", err),
+            };
         }
     }
 }
@@ -140,6 +174,9 @@ where
                     .ok_or_else(|| {
                         RpcServeError::Message("Received empty response from ipfs".into())
                     })?;
+
+                self.add_ipfs_pin_to_state(&hash).await;
+                self.gossip(&GossipMessage::AddPin { hash }).await;
                 response.into()
             }
             PinAction::rm => {
@@ -153,6 +190,8 @@ where
                     .ok_or_else(|| {
                         RpcServeError::Message("Received empty response from ipfs".into())
                     })?;
+                self.rm_ipfs_pin_from_state(&hash).await;
+                self.gossip(&GossipMessage::RmPin { hash }).await;
                 response.into()
             }
         };
@@ -175,8 +214,11 @@ where
 
         info!("added {} to ipfs", response.hash);
 
-        self.update_state(&response.hash).await;
-        self.gossip_add(&response.hash).await;
+        self.add_ipfs_to_state(&response.hash).await;
+        self.gossip(&GossipMessage::AddFile {
+            hash: response.hash.clone(),
+        })
+        .await;
 
         Ok(response)
     }
@@ -281,6 +323,8 @@ enum IpfsApiError {
 #[derive(Serialize, Deserialize)]
 pub enum GossipMessage {
     AddFile { hash: String },
+    AddPin { hash: String },
+    RmPin { hash: String },
 }
 
 #[cfg(feature = "mock-ipfs")]
@@ -413,9 +457,12 @@ mod test {
             hash: initial.clone(),
         })
         .unwrap();
-        let GossipMessage::AddFile { hash } =
-            serde_json::from_slice::<GossipMessage>(&msg).unwrap();
-
-        assert_eq!(initial, hash);
+        if let GossipMessage::AddFile { hash } =
+            serde_json::from_slice::<GossipMessage>(&msg).unwrap()
+        {
+            assert_eq!(initial, hash);
+        } else {
+            panic!("Unexpected hash")
+        }
     }
 }

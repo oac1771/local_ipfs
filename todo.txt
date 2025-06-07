@@ -1,10 +1,6 @@
 server
-    - network start could be outside of starting server in different process since those two things should not be linked
-        - might need to start a process to handle gossip messages
-            - inner struct that can be used in ipfs api and gossip handler 
-
-    - update state once pin rm has been called 
-        - should gossip this to other nodes
+    - check states in test
+    - update metrics to get pinned hashes
     - look into gossiping so changes can propogate over the network 
         - should gossip pinning requests and remove pinning requests across network
         - will need save gossiped hash in state
@@ -15,5 +11,3 @@ cli
 
 refactor:
     - state_client could be dht table from kadmelia so each node can be stateless
-    - create a response type channel for when state and network exit out of their loop {select!{}} so
-        you can join!{} on those handles and make sure the cleanup happens

@@ -6,7 +6,7 @@ mod tests {
 
     use rand::Rng;
     use server::{
-        api::ipfs::IpfsClient,
+        api::{ipfs::IpfsClient, types::ipfs::PinAction},
         network::{GossipCallBackFn, NetworkBuilder, NetworkClient},
         rpc::{ipfs::GossipMessage, Module},
         server::{builder::ServerBuilder, Server, ServerConfig},
@@ -157,6 +157,14 @@ mod tests {
                                         serde_json::from_slice::<GossipMessage>(msg)
                                     {
                                         info!("Processing add file gossip message");
+                                    } else if let Ok(GossipMessage::AddPin { hash: _ }) =
+                                        serde_json::from_slice::<GossipMessage>(msg)
+                                    {
+                                        info!("Processing add pin gossip message");
+                                    } else if let Ok(GossipMessage::RmPin { hash: _ }) =
+                                        serde_json::from_slice::<GossipMessage>(msg)
+                                    {
+                                        info!("Processing rm pin gossip message");
                                     }
                                 }
                                 .boxed()
@@ -382,6 +390,102 @@ mod tests {
             .await;
         node_2
             .assert_info_log_entry("Processing add file gossip message")
+            .await;
+    }
+
+    #[test_macro::test]
+    async fn gossip_ipfs_add_pin_to_peers(log_buffer: Arc<Mutex<Vec<u8>>>) {
+        let topic = "gossip_topic";
+        let data = vec![1, 2, 3, 4];
+
+        let node_topology = setup_test_topolgy(1, log_buffer, topic).await;
+        let (_, nodes) = node_topology.into_nodes();
+
+        let (node_1, node_2) = match &nodes[..] {
+            [first, second, ..] => (first, second),
+            _ => panic!("Not enough peers"),
+        };
+
+        let node_1_peer_id = node_1.network_client().get_peer_id().await.unwrap();
+
+        node_1
+            .assert_info_log_entry(&format!("Subscribed to topic: {}", topic))
+            .await;
+        node_2
+            .assert_info_log_entry(&format!("Subscribed to topic: {}", topic))
+            .await;
+
+        let response = node_1.server_client.add(data).await.unwrap();
+        let hash = response.hash;
+        node_1
+            .server_client
+            .pin(PinAction::add, Some(hash))
+            .await
+            .unwrap();
+
+        node_1
+            .assert_info_log_entry(&format!(
+                "Successfully published message to {} topic",
+                topic
+            ))
+            .await;
+
+        node_2
+            .assert_info_log_contains(&format!("Gossip message received from {}", node_1_peer_id))
+            .await;
+        node_2
+            .assert_info_log_entry("Gossip message relayed to client")
+            .await;
+        node_2
+            .assert_info_log_entry("Processing add pin gossip message")
+            .await;
+    }
+
+    #[test_macro::test]
+    async fn gossip_ipfs_rm_pin_to_peers(log_buffer: Arc<Mutex<Vec<u8>>>) {
+        let topic = "gossip_topic";
+        let data = vec![1, 2, 3, 4];
+
+        let node_topology = setup_test_topolgy(1, log_buffer, topic).await;
+        let (_, nodes) = node_topology.into_nodes();
+
+        let (node_1, node_2) = match &nodes[..] {
+            [first, second, ..] => (first, second),
+            _ => panic!("Not enough peers"),
+        };
+
+        let node_1_peer_id = node_1.network_client().get_peer_id().await.unwrap();
+
+        node_1
+            .assert_info_log_entry(&format!("Subscribed to topic: {}", topic))
+            .await;
+        node_2
+            .assert_info_log_entry(&format!("Subscribed to topic: {}", topic))
+            .await;
+
+        let response = node_1.server_client.add(data).await.unwrap();
+        let hash = response.hash;
+        node_1
+            .server_client
+            .pin(PinAction::rm, Some(hash))
+            .await
+            .unwrap();
+
+        node_1
+            .assert_info_log_entry(&format!(
+                "Successfully published message to {} topic",
+                topic
+            ))
+            .await;
+
+        node_2
+            .assert_info_log_contains(&format!("Gossip message received from {}", node_1_peer_id))
+            .await;
+        node_2
+            .assert_info_log_entry("Gossip message relayed to client")
+            .await;
+        node_2
+            .assert_info_log_entry("Processing rm pin gossip message")
             .await;
     }
 }
