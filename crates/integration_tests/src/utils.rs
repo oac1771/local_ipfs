@@ -90,7 +90,7 @@ pub trait Runner {
             let buffer = log_buffer.lock().unwrap();
             let log_output = String::from_utf8(buffer.clone()).unwrap();
             panic!(
-                "Logs: {}\nFailed to find log entry for {}: {}",
+                "Logs:\n{}\nFailed to find log entry for {}: {}",
                 log_output,
                 self.name(),
                 entry

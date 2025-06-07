@@ -16,7 +16,7 @@ mod tests {
         sync::{Arc, Mutex},
         time::Duration,
     };
-    use tracing::{instrument, Instrument, Span, info};
+    use tracing::{info, instrument, Instrument, Span};
     use tracing_subscriber::{reload::Layer, EnvFilter};
 
     struct ServerRunnerBuilder {
@@ -120,11 +120,22 @@ mod tests {
             });
 
             let server_url = format!("ws://localhost:{}", server_port);
-            let server_client = WsClientBuilder::default()
-                .request_timeout(Duration::from_millis(100))
-                .build(server_url)
-                .await
-                .unwrap();
+
+            let server_client = tokio::time::timeout(tokio::time::Duration::from_secs(1), async {
+                let client = loop {
+                    match WsClientBuilder::default()
+                        .request_timeout(Duration::from_millis(100))
+                        .build(&server_url)
+                        .await
+                    {
+                        Ok(server_client) => break server_client,
+                        Err(_) => tokio::time::sleep(tokio::time::Duration::from_millis(50)).await,
+                    }
+                };
+                client
+            })
+            .await
+            .expect("Timedout waiting for server client");
 
             ServerRunner {
                 log_buffer: self.log_buffer,
@@ -142,7 +153,7 @@ mod tests {
                         let callback_fn: GossipCallBackFn = Box::new({
                             move |msg: &[u8]| {
                                 async move {
-                                    if let Ok(GossipMessage::AddFile { hash:_ }) =
+                                    if let Ok(GossipMessage::AddFile { hash: _ }) =
                                         serde_json::from_slice::<GossipMessage>(msg)
                                     {
                                         info!("Processing add file gossip message");
